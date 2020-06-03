@@ -2,11 +2,11 @@
 DUNE Sign-Selecting Range Indicator simulation studies
 
 Directory structure:
-+ setup
+- setup
 setup scripts
 
-+ grid
+- grid
 grid submission tools
 
-+ ana
+- ana
 Analysis scripts
