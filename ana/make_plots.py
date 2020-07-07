@@ -5,13 +5,22 @@ ROOT.gStyle.SetOptStat(0)
 
 geometries = ["rmms"]#["2Coils", "4Coils", "5Coils", "SPY"]
 recs = ["contained", "rmms", "none"]
+nutypes = ["neutrino", "antineutrino" ]
 rnames = ["LAr contained", "SSRI", "All"]
 colors = [ROOT.kRed, ROOT.kGreen+2, ROOT.kBlue, ROOT.kMagenta+2]
 #topdir = "/dune/data/users/gsdavies"
-topdir = "/dune/data/users/gsdavies/ssri"
+topdir = "/dune/data/users/gsdavies/ssri/inc_lar/"
 
 hSig = ROOT.TH1D( "sigma", ";#mu KE (GeV)", 20, 0., 5. )
 hRMS = ROOT.TH1D( "rms", ";#mu KE (GeV)", 20, 0., 5. )
+
+def CornerLabel( string ):
+    label = ROOT.TLatex()
+    label.SetTextColor(ROOT.kGray+1)
+    label.SetNDC()
+    label.SetTextSize(2/30.)
+    label.SetTextAlign(11)
+    label.DrawLatex(.1, .93, string)
 
 def setNormalColors():
     stops = array( 'd', [ 0.0000, 0.1250, 0.2500, 0.3750, 0.5000, 0.6250, 0.7500, 0.8750, 1.0000 ] )
@@ -103,22 +112,23 @@ def plotMomRes( ohdenom, geom ):
     
     c1 = ROOT.TCanvas()
     hdenom.Draw("colz")
-    c1.Print( "testplots/mom-recotrue_%s_test.png" % (geom) )
+    #c1.Print( "testplots/mom-recotrue_%s_test.png" % (geom) )
     
     c = ROOT.TCanvas()
     for b in range(1,21):
         h = hdenom.ProjectionY("py_%d"%b, b, b)
-        c.Print( "testplots/projy_%d.png" % b )
+
         hRMS.SetBinContent( b, h.GetRMS() )
         maxP = h.GetBinCenter(h.GetMaximumBin() )
         print "maxP", maxP
-        #if h.GetBinContent(b) == 0: continue
-        h.Fit( "gaus", "Q", "Q", maxP-0.2, maxP+0.2 )
-        hSig.SetBinContent( b, h.GetFunction("gaus").GetParameter(2) )
-        h.Draw("hist")
-        h.GetFunction("gaus").SetLineColor(2)
-        h.GetFunction("gaus").Draw("same")
-        c.Print( "testplots/residual_%1.1f_%1.1f.png" % (hdenom.GetXaxis().GetBinLowEdge(b), hdenom.GetXaxis().GetBinLowEdge(b+1)) )
+        if h.GetSumOfWeights() != 0:
+            h.Fit( "gaus", "Q", "Q", maxP-0.2, maxP+0.2 )
+            print "sigma ", h.GetFunction("gaus").GetParameter(2)
+            hSig.SetBinContent( b, h.GetFunction("gaus").GetParameter(2) )
+            h.Draw("hist")
+            h.GetFunction("gaus").SetLineColor(2)
+            h.GetFunction("gaus").Draw("same")
+            #c.Print( "testplots/residual_%1.1f_%1.1f.png" % (hdenom.GetXaxis().GetBinLowEdge(b), hdenom.GetXaxis().GetBinLowEdge(b+1)) )
     
     hRMS.SetMinimum(0.)
     hRMS.SetLineColor(2)
@@ -175,6 +185,13 @@ def plotAngle( ohdenom, geom ):
     c = ROOT.TCanvas()
     hdenom.Draw("colz")
     c.Print( "testplots/angle_%s_test.png" % (geom) )
+
+def plotLArFactor( ohdenom, geom ):
+    hdenom = ohdenom.Clone( "clone" )
+    
+    c = ROOT.TCanvas()
+    hdenom.Draw("hist")
+    c.Print( "testplots/larfactor_%s_test.png" % (geom) )
 
 def plotScint( ohdenom, geom ):
     hdenom = ohdenom.Clone( "clone" )
@@ -314,6 +331,46 @@ def plotAccRatioAll( ohNum, ohDenom, idx ):
     c.Print( "testplots/accRatioAll.png" )
     c.Print( "testplots/accRatioAll.pdf" )
 
+def plotSignDist( ohNum, geom ):
+    hNum = [ohNum[t].Clone("num_%s" % nutype) for t,nutype in enumerate(nutypes)]
+    
+    c = ROOT.TCanvas()
+    hNum[0].SetLineColor(ROOT.kAzure+2)
+    hNum[1].SetLineColor(ROOT.kRed+2)
+    hNum[0].Draw("hist")
+    integral = hNum[0].Integral(50,100)
+    totintegral = hNum[0].Integral(-1,-1)
+    print "INTEGRAL: ", integral
+    print "tot INTEGRAL: ", totintegral
+    hNum[1].Draw("hist same")
+    leg = ROOT.TLegend( 0.2, 0.75, 0.8, 0.846 )
+    leg.SetNColumns(2)
+
+    leg.AddEntry( hNum[0], "Neutrino", "l" )
+    leg.AddEntry( hNum[1], "Antineutrino", "l" )
+
+
+    leg.Draw()
+    CornerLabel("Neutrino Beam Mode")
+    c.Print("testplots/signdist_%s.png" % geom )
+
+def plotSignDistMom( ohNum, geom ):
+    hNum = [ohNum[t].Clone("num_%s" % nutype) for t,nutype in enumerate(nutypes)]
+    
+    c = ROOT.TCanvas()
+    hNum[0].Draw("colz")
+    CornerLabel("Neutrino Beam Mode")
+    c.Print("testplots/signdistmom_%s_neutrino.png" % geom )
+
+    hNum[1].Draw("colz")
+    CornerLabel("Neutrino Beam Mode")
+    c.Print("testplots/signdistmom_%s_antineutrino.png" % geom )
+    #leg = ROOT.TLegend( 0.2, 0.75, 0.8, 0.846 )
+    #leg.SetNColumns(2)
+
+    #leg.AddEntry( hNum[0], "Neutrino", "l" )
+    #leg.AddEntry( hNum[1], "Antineutrino", "l" )
+
 
 def plotAcc1D( ohNum, ohDenom, geom ):
     hNum = [ohNum[i].ProjectionX("num_%s" % r, 1, 2) for i,r in enumerate(recs)]
@@ -401,11 +458,13 @@ def plotX( hNum, hDenom, geom ):
 
 if __name__ == "__main__":
 
-    tf = ROOT.TFile( "%s/dumpall_cmfixhistos.root" % topdir )
+    tf = ROOT.TFile( "%s/dumpSSRI-v5-histos.root" % topdir )
     #tf = ROOT.TFile( "%s/filled_fifty.root" % topdir )
 
     hDenom = [None for g in geometries]
     hNum = [[None for r in recs] for g in geometries]
+    hSignDist = [[None for t in nutypes] for g in geometries]
+    hSignDistMom = [[None for t in nutypes] for g in geometries]
     hNumLen = [[None for r in recs] for g in geometries]
     hDenomQ2 = [None for g in geometries]
     hNumQ2 = [[None for r in recs] for g in geometries]
@@ -427,6 +486,7 @@ if __name__ == "__main__":
     hMomRes = [None for g in geometries]
     hMomRes2 = [None for g in geometries]
     hAngle = [None for g in geometries]
+    hLArFactor = [None for g in geometries]
 
     setNormalColors()
     for g,geom in enumerate(geometries):
@@ -450,11 +510,19 @@ if __name__ == "__main__":
         hMomRes[g] = tf.Get( "momRES_%s" % geom )
         hMomRes2[g] = tf.Get( "momRES2_%s" % geom )
         hAngle[g] = tf.Get( "angle_%s" % geom )
+        hLArFactor[g] = tf.Get( "larfactor_%s" % geom )
         for r,rec in enumerate(recs):
             hNum[g][r] = tf.Get( "num_%s_%s" % (geom, rec) )
             hNumLen[g][r] = tf.Get( "numlen_%s_%s" % (geom, rec) )
             hNumQ2[g][r] = tf.Get( "numQ2_%s_%s" % (geom, rec) )
 
+        for t, nutype in enumerate(nutypes):
+            hSignDist[g][t] = tf.Get("signdist_%s_%s" % (geom, nutype) )
+            hSignDistMom[g][t] = tf.Get("signdistmom_%s_%s" % (geom, nutype) )
+
+        plotSignDist( hSignDist[g], geom)
+        plotSignDistMom( hSignDistMom[g], geom)
+            
         plotAcc2D( hNum[g], hDenom[g], geom, "etheta" )
         plotELen2D( hNumLen[g], hDenom[g], geom, "elen" )
         plotAcc2D( hNumQ2[g], hDenomQ2[g], geom, "Q2" )
@@ -474,8 +542,9 @@ if __name__ == "__main__":
         plotScint( hScint[g], geom )
         plotMom( hMomAC[g], hMomSSRI[g], hMomCON[g], geom )
         plotAngle( hAngle[g], geom)
+        plotLArFactor( hLArFactor[g], geom)
 
-    #setRedBlue()
+        #setRedBlue()
     #for g,geom in enumerate(geometries):
     #    plotAccRatio( hNum[g], hDenom[g], hNum[2], hDenom[2], geom )
 

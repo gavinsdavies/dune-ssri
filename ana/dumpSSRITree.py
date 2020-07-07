@@ -8,6 +8,7 @@ from optparse import OptionParser
 from array import array
 
 muon_mass = 105.6583755
+extra_trk_length = 24.35 # g/cm^2 from Mike K.
 
 def loop( events, dspt, tgeo, tout ):
 
@@ -28,7 +29,7 @@ def loop( events, dspt, tgeo, tout ):
     for evt in dspt:
 
         t_Ev[0] = evt.StdHepP4[3] # neutrino is first 4-vector, so 3 is always Ev
-        
+
         if ient % 100 == 0:
             print "Event %d of %d..." % (ient,N)
         events.GetEntry(ient)
@@ -53,10 +54,15 @@ def loop( events, dspt, tgeo, tout ):
             t_muonExitMom[0] = 0.0; t_muonExitMom[1] = 0.0; t_muonExitMom[2] = 0.0; 
             t_muonExitKE[0] = 0.0
             t_muonReco[0] = -1;
-            t_muScintLen[0]=0.0;
-            t_muScintLenOld[0]=0.0;
-            t_muScintEnergy[0]=0.0;
+            t_muScintLen[0] = 0.0;
+            t_muLArLen[0] = 0.0;
+            t_muScintLenOld[0] = 0.0;
+            t_muScintEnergy[0] = 0.0;
 
+            xpt.clear()
+            zpt.clear()
+
+            #if ient != 5819: break
             # now ID numucc
             reaction=vertex.Reaction
             #print reaction
@@ -88,6 +94,8 @@ def loop( events, dspt, tgeo, tout ):
                     t_lepPdg[0] = pdg
                     # set the muon momentum for output
                     for i in range(3): t_p3lep[i] = particle.Momentum[i]
+                    #t_lepKE[0] = (particle.Momentum.Mag2() + muon_mass*2)**0.5 - muon_mass
+                    #print "Lepton KE: ", t_lepKE[0]
                     t_lepKE[0] = e - m
                     t_lepE[0] = e
                     #print "Lepton KE: ", t_lepKE[0]
@@ -123,8 +131,9 @@ def loop( events, dspt, tgeo, tout ):
                     t_muonExitMom[0] = p.Momentum.x()
                     t_muonExitMom[1] = p.Momentum.y()
                     t_muonExitMom[2] = p.Momentum.z()
-
+                    
                     t_muonExitKE[0] = (p.Momentum.Mag2() + muon_mass*2)**0.5 - muon_mass
+                    #print "Muon KE ", t_muonExitKE[0]
                 else:
                     if not exit:
                         t_muonExitPt[0] = pt.X() / 10. - offset[0]
@@ -151,6 +160,53 @@ def loop( events, dspt, tgeo, tout ):
             elif "RMMS" in endVolName: t_muonReco[0] = 2 # Scintillator stopper
             else: t_muonReco[0] = 0 # endpoint not in active material
 
+            # look for muon hits in the ArgonCube
+            arhits = []
+            for key in event.SegmentDetectors:
+                if key.first == "ArgonCube":
+                    arhits += key.second
+                    
+            ar_muon_hits = []
+            for idx, hit in enumerate(arhits):
+                tid = hit.Contrib[0]
+                traj = event.Trajectories[tid]
+                if traj.ParentId == -1 and abs(traj.PDGCode) == 13:
+                    ar_muon_hits.append(hit)
+
+            if len(ar_muon_hits) < 3: continue
+
+            ar_trk_length_gcm2 = 0.
+            #print ""
+            for idx, hit in enumerate(ar_muon_hits):
+                hStart = ROOT.TVector3( hit.Start[0]/10.-offset[0], hit.Start[1]/10.-offset[1], hit.Start[2]/10.-offset[2] )
+                #print "Start X: ", hStart.x()
+                #print "Start Z: ", hStart.z()
+                xpt.push_back(hStart.x())
+                zpt.push_back(hStart.z())
+                
+            
+            # just use vertex and LAr endpoint for first pass
+            #hArStart = ROOT.TVector3 (t_vtx[0], t_vtx[1], t_vtx[2])
+            #hArEnd = ROOT.TVector3( t_muonExitPt[0], t_muonExitPt[1], t_muonExitPt[2] )
+            hArStart=ROOT.TVector3(ar_muon_hits[0].Start[0]/10.-offset[0], ar_muon_hits[0].Start[1]/10.-offset[1], ar_muon_hits[0].Start[2]/10.-offset[2])
+            hArEnd=ROOT.TVector3(ar_muon_hits[-1].Start[0]/10.-offset[0], ar_muon_hits[-1].Start[1]/10.-offset[1], ar_muon_hits[-1].Start[2]/10.-offset[2])
+            #print "Start z: ",hArStart.z()
+            #print "End z: ",hArEnd.z()
+            ar_dh = (hArEnd-hArStart).Mag()
+            ar_dz = hArEnd.z()-hArStart.z()
+                
+            #print "ar_dh ", ar_dh
+            #print "ar_dz ", ar_dz
+            #if ar_dz == 0: continue
+            ar_trk_length_gcm2 = 1.4 * ar_dh
+            #print "Event # ", ient
+            #print "AR Start Z ", hArStart.z()
+            #print "AR End Z ", hArEnd.z()
+            #print "AR TRACK LENGTH", ar_trk_length_gcm2
+
+            
+
+            #-------------------------------------------------------
             # look for muon hits in the scintillator
             hits = []
             for key in event.SegmentDetectors:
@@ -185,6 +241,10 @@ def loop( events, dspt, tgeo, tout ):
                 hStart = ROOT.TVector3( hit.Start[0]/10.-offset[0], hit.Start[1]/10.-offset[1], hit.Start[2]/10.-offset[2] )
                 hStop = ROOT.TVector3( hit.Stop[0]/10.-offset[0], hit.Stop[1]/10.-offset[1], hit.Stop[2]/10.-offset[2] )
 
+                xpt.push_back(hStart.x())
+                zpt.push_back(hStart.z())
+                #print "hStart.z(): ", hStart.z()
+                #print "hStart.x(): ", hStart.x()
                 # this isn't the first hit, so we can start to build a track
                 if hPrev is not None:
                     # thin layer is 3cm air + 1cm scint + 1.5cm steel = 5.5cm pitch
@@ -194,7 +254,7 @@ def loop( events, dspt, tgeo, tout ):
                     # correct for cosine of the incident angle
                     dh = (hStart-hPrev).Mag()
                     dz = hStart.z()-hPrev.z()
-
+                    
                     # sometimes there are multiple hits within a scintillator plane, and we want to skip them
                     if gap < 4.:
                         continue
@@ -229,14 +289,15 @@ def loop( events, dspt, tgeo, tout ):
             t_muonDeath[1] = hFinal.y()
             t_muonDeath[2] = hFinal.z()
 
-            t_muScintLen[0] = trk_length_gcm2
+            t_muScintLen[0] = trk_length_gcm2 + extra_trk_length
+            t_muLArLen[0] = ar_trk_length_gcm2 
             t_muScintEnergy[0] = de
             #print "Length ", t_muScintLen[0]
             #print "rmms KE ", t_rmmsKE[0]
             #print "exit KE ", t_muonExitKE[0]
             
             #ratio = 0. if not trk_length_gcm2 else t_rmmsKE[0]/trk_length_gcm2
-            #print "%s SSRI KE %1.1f, out of LAr KE %1.1f, planes %d, length %1.1f, ratio %1.3f" % (endVolName, t_rmmsKE[0], t_muonExitKE[0], total_planes, trk_length_gcm2, ratio)
+            #print "%d,  %s Corrected Track Length %1.1f, out of Total muon KE %1.1f, (or ssri KE: %1.1f) planes %d, rmms length %1.1f, ar_trk_length %1.3f" % (ient, endVolName, 2.*t_muScintLen[0], t_lepKE[0], t_muonExitKE[0], total_planes, trk_length_gcm2, ar_trk_length_gcm2)
 
             tout.Fill()
         ient += 1
@@ -290,6 +351,8 @@ if __name__ == "__main__":
     tout.Branch('muonReco',t_muonReco,'muonReco/I')
     t_muScintLen = array('f',[0])
     tout.Branch('muScintLen',t_muScintLen,'muScintLen/F')
+    t_muLArLen = array('f',[0])
+    tout.Branch('muLArLen',t_muScintLen,'muLArLen/F')
     t_muonExitKE = array('f',[0])
     tout.Branch('muonExitKE',t_muonExitKE,'muonExitKE/F')
     t_muScintLenOld = array('f',[0])
@@ -308,6 +371,12 @@ if __name__ == "__main__":
     tout.Branch('fsPz',t_fsPz,'fsPz[nFS]/F')
     t_fsE = array('f',100*[0.])
     tout.Branch('fsE',t_fsE,'fsE[nFS]/F')
+    xpt = ROOT.std.vector('float')()
+    zpt = ROOT.std.vector('float')()
+    tout.Branch('xpt', xpt)
+    tout.Branch('zpt', zpt)
+    
+    
 
     loaded = False
     tgeo = None
