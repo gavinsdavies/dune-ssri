@@ -64,12 +64,13 @@ def loop( events, dspt, tgeo, tout ):
 
             #if ient != 5819: break
             # now ID numucc
-            reaction=vertex.Reaction
+            reaction=vertex.GetReaction()
+            #reaction=0
             #print reaction
 
             # set the vertex location for output
             for i in range(3): 
-                t_vtx[i] = vertex.Position[i] / 10. - offset[i] # cm
+                t_vtx[i] = vertex.GetPosition()[i] / 10. - offset[i] # cm
 
             # fiducial vertex pre-cut
             #if abs(t_vtx[0]) > 310. or abs(t_vtx[1]) > 110. or t_vtx[2] < 40. or t_vtx[2] > 360.:
@@ -79,22 +80,22 @@ def loop( events, dspt, tgeo, tout ):
             nfsp = 0
             # get the lepton kinematics from the edepsim file
             for ipart,particle in enumerate(vertex.Particles):
-                e = particle.Momentum[3]
-                p = (particle.Momentum[0]**2 + particle.Momentum[1]**2 + particle.Momentum[2]**2)**0.5
+                e = particle.GetMomentum()[3]
+                p = (particle.GetMomentum()[0]**2 + particle.GetMomentum()[1]**2 + particle.GetMomentum()[2]**2)**0.5
                 m = (e**2 - p**2)**0.5
-                t_fsPdg[nfsp] = particle.PDGCode
-                t_fsPx[nfsp] = particle.Momentum[0]
-                t_fsPy[nfsp] = particle.Momentum[1]
-                t_fsPz[nfsp] = particle.Momentum[2]
+                t_fsPdg[nfsp] = particle.GetPDGCode()
+                t_fsPx[nfsp] = particle.GetMomentum()[0]
+                t_fsPy[nfsp] = particle.GetMomentum()[1]
+                t_fsPz[nfsp] = particle.GetMomentum()[2]
                 t_fsE[nfsp] = e
                 nfsp += 1
-                pdg = particle.PDGCode
+                pdg = particle.GetPDGCode()
                 if abs(pdg) in [11,12,13,14]:
-                    ileptraj = particle.TrackId
+                    ileptraj = particle.GetTrackId()
                     t_lepPdg[0] = pdg
                     # set the muon momentum for output
-                    for i in range(3): t_p3lep[i] = particle.Momentum[i]
-                    #t_lepKE[0] = (particle.Momentum.Mag2() + muon_mass*2)**0.5 - muon_mass
+                    for i in range(3): t_p3lep[i] = particle.GetMomentum()[i]
+                    #t_lepKE[0] = (particle/GetMomentum().Mag2() + muon_mass*2)**0.5 - muon_mass
                     #print "Lepton KE: ", t_lepKE[0]
                     t_lepKE[0] = e - m
                     t_lepE[0] = e
@@ -114,7 +115,7 @@ def loop( events, dspt, tgeo, tout ):
 
             pPrev = None
             for p in leptraj.Points:
-                pt = p.Position
+                pt = p.GetPosition()
                 node = tgeo.FindNode( pt.X(), pt.Y(), pt.Z() )
                 volName = node.GetName()
                 active = False
@@ -128,11 +129,11 @@ def loop( events, dspt, tgeo, tout ):
                     t_muonExitPt[0] = pt.X() / 10. - offset[0]
                     t_muonExitPt[1] = pt.Y() / 10. - offset[1]
                     t_muonExitPt[2] = pt.Z() / 10. - offset[2]
-                    t_muonExitMom[0] = p.Momentum.x()
-                    t_muonExitMom[1] = p.Momentum.y()
-                    t_muonExitMom[2] = p.Momentum.z()
+                    t_muonExitMom[0] = p.GetMomentum().x()
+                    t_muonExitMom[1] = p.GetMomentum().y()
+                    t_muonExitMom[2] = p.GetMomentum().z()
                     
-                    t_muonExitKE[0] = (p.Momentum.Mag2() + muon_mass*2)**0.5 - muon_mass
+                    t_muonExitKE[0] = (p.GetMomentum().Mag2() + muon_mass*2)**0.5 - muon_mass
                     #print "Muon KE ", t_muonExitKE[0]
                 else:
                     if not exit:
@@ -143,11 +144,11 @@ def loop( events, dspt, tgeo, tout ):
 
                     # Check if it is in the RMMS
                     if ("RMMS" in volName or "modulelayer" in volName) and not inrmms:
-                        t_rmmsKE[0] = (p.Momentum.Mag2() + muon_mass*2)**0.5 - muon_mass
+                        t_rmmsKE[0] = (p.GetMomentum().Mag2() + muon_mass*2)**0.5 - muon_mass
                         inrmms = True
                 pPrev = pPos
 
-            endpt = leptraj.Points[-1].Position
+            endpt = leptraj.Points[-1].GetPosition()
 
             node = tgeo.FindNode( endpt.X(), endpt.Y(), endpt.Z() )
 
@@ -170,7 +171,7 @@ def loop( events, dspt, tgeo, tout ):
             for idx, hit in enumerate(arhits):
                 tid = hit.Contrib[0]
                 traj = event.Trajectories[tid]
-                if traj.ParentId == -1 and abs(traj.PDGCode) == 13:
+                if traj.GetParentId() == -1 and abs(traj.GetPDGCode()) == 13:
                     ar_muon_hits.append(hit)
 
             if len(ar_muon_hits) < 3: continue
@@ -178,7 +179,7 @@ def loop( events, dspt, tgeo, tout ):
             ar_trk_length_gcm2 = 0.
             #print ""
             for idx, hit in enumerate(ar_muon_hits):
-                hStart = ROOT.TVector3( hit.Start[0]/10.-offset[0], hit.Start[1]/10.-offset[1], hit.Start[2]/10.-offset[2] )
+                hStart = ROOT.TVector3( hit.GetStart()[0]/10.-offset[0], hit.GetStart()[1]/10.-offset[1], hit.GetStart()[2]/10.-offset[2] )
                 #print "Start X: ", hStart.x()
                 #print "Start Z: ", hStart.z()
                 xpt.push_back(hStart.x())
@@ -188,8 +189,8 @@ def loop( events, dspt, tgeo, tout ):
             # just use vertex and LAr endpoint for first pass
             #hArStart = ROOT.TVector3 (t_vtx[0], t_vtx[1], t_vtx[2])
             #hArEnd = ROOT.TVector3( t_muonExitPt[0], t_muonExitPt[1], t_muonExitPt[2] )
-            hArStart=ROOT.TVector3(ar_muon_hits[0].Start[0]/10.-offset[0], ar_muon_hits[0].Start[1]/10.-offset[1], ar_muon_hits[0].Start[2]/10.-offset[2])
-            hArEnd=ROOT.TVector3(ar_muon_hits[-1].Start[0]/10.-offset[0], ar_muon_hits[-1].Start[1]/10.-offset[1], ar_muon_hits[-1].Start[2]/10.-offset[2])
+            hArStart=ROOT.TVector3(ar_muon_hits[0].GetStart()[0]/10.-offset[0], ar_muon_hits[0].GetStart()[1]/10.-offset[1], ar_muon_hits[0].GetStart()[2]/10.-offset[2])
+            hArEnd=ROOT.TVector3(ar_muon_hits[-1].GetStart()[0]/10.-offset[0], ar_muon_hits[-1].GetStart()[1]/10.-offset[1], ar_muon_hits[-1].GetStart()[2]/10.-offset[2])
             #print "Start z: ",hArStart.z()
             #print "End z: ",hArEnd.z()
             ar_dh = (hArEnd-hArStart).Mag()
@@ -217,13 +218,13 @@ def loop( events, dspt, tgeo, tout ):
             for idx, hit in enumerate(hits):
                 tid = hit.Contrib[0]
                 traj = event.Trajectories[tid]
-                if traj.ParentId == -1 and abs(traj.PDGCode) == 13:
+                if traj.GetParentId() == -1 and abs(traj.GetPDGCode()) == 13:
                     muon_hits.append(hit)
 
 
             if len(muon_hits) < 2: continue
 
-            hMuonStart = muon_hits[0].Start
+            hMuonStart = muon_hits[0].GetStart()
             t_muonBirth[0] = hMuonStart[0]/10.-offset[0]
             t_muonBirth[1] = hMuonStart[1]/10.-offset[1]
             t_muonBirth[2] = hMuonStart[2]/10.-offset[2]
@@ -236,10 +237,10 @@ def loop( events, dspt, tgeo, tout ):
             total_planes = 0
 
             for idx, hit in enumerate(muon_hits):
-                de += hit.EnergyDeposit
+                de += hit.GetEnergyDeposit()
 
-                hStart = ROOT.TVector3( hit.Start[0]/10.-offset[0], hit.Start[1]/10.-offset[1], hit.Start[2]/10.-offset[2] )
-                hStop = ROOT.TVector3( hit.Stop[0]/10.-offset[0], hit.Stop[1]/10.-offset[1], hit.Stop[2]/10.-offset[2] )
+                hStart = ROOT.TVector3( hit.GetStart()[0]/10.-offset[0], hit.GetStart()[1]/10.-offset[1], hit.GetStart()[2]/10.-offset[2] )
+                hStop = ROOT.TVector3( hit.GetStop()[0]/10.-offset[0], hit.GetStop()[1]/10.-offset[1], hit.GetStop()[2]/10.-offset[2] )
 
                 xpt.push_back(hStart.x())
                 zpt.push_back(hStart.z())
