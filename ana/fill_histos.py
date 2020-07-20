@@ -3,7 +3,8 @@ from math import cos, atan2, sqrt
 
 geometries = ["rmms"]#["2Coils", "4Coils", "5Coils", "SPY"]
 #topdir = "/dune/data/users/gsdavies/"
-topdir="/dune/data/users/gsdavies/ssri/inc_lar/"
+#topdir="/dune/data/users/gsdavies/ssri/inc_lar/"
+topdir="/dune/app/users/cwret/SSRI/dune-ssri/ana"
 recs = ["contained", "rmms", "none"]
 nutype = ["neutrino", "antineutrino" ]
 
@@ -37,13 +38,16 @@ def loop( tree, hNum, hNumLen, hDenom, hNumX, hDenomX, hNumQ2, hDenomQ2, hVXY, h
     n = 0
     total_selected = 0.
     total = 0.
+    print "entries: ", N
     for entry in tree:
         if n % 1000 == 0:
             print "  event %d of %d..." % (n,N)
         n += 1
+        print "event ", n
 
         # True numu CC
         if abs(entry.lepPdg) != 13: continue
+        print "passed lepton req"
 
         # vertex cut
         if abs(entry.vtx[0]) > 300. or abs(entry.vtx[1]) > 100. or entry.vtx[2] < 50. or entry.vtx[2] > 350.: continue
@@ -169,8 +173,11 @@ def loop( tree, hNum, hNumLen, hDenom, hNumX, hDenomX, hNumQ2, hDenomQ2, hVXY, h
             if rec:
                 hNumX.Fill( entry.lepKE/1000., entry.vtx[0] )
 
-        purity = total_selected / total
-        print "Purity: ", purity
+    print " total_selected: ", total_selected
+    print "total: ", total
+
+    purity = total_selected / total
+    print "Purity: ", purity
 
 if __name__ == "__main__":
 
@@ -206,10 +213,11 @@ if __name__ == "__main__":
         tree = ROOT.TChain("tree","tree")
         #tree.Add( "%s/MPD_%s_LAr/*.root" % (topdir, geom) )
         #tree.Add("%s/test10-60.root" % topdir )
-        tree.Add("%s/dumpSSRI-v5.root" % topdir )
+        #tree.Add("%s/dumpSSRI-v5.root" % topdir )
         #tree.Add("%s/rhc_dump10v1.root" % topdir )
         #tree.Add("%s/test.root" % topdir )
         #tree.Add("%s/dump_cmfix_allnu.root" % topdir )
+        tree.Add("%s/test_ssri_10July.root" % topdir)
 
         hAngle[g] = ROOT.TH2D( "angle_%s" % geom, ";Neutrino energy (GeV);Angle (RMMS) [degrees]", 200, 0., 2000., 45, -90., 90. )
         hED[g] = ROOT.TH2D( "MOM-EDEP_%s" % geom, ";Muon Kinetic Energy (GeV) [SSRI];Muon Track Length (g/cm^2)", 35, 0., 7., 40, 0., 4000. )
