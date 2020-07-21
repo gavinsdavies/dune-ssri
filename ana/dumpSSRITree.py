@@ -12,9 +12,13 @@ extra_trk_length = 24.35 # g/cm^2 from Mike K.
 
 def loop( events, dspt, tgeo, tout ):
 
+  # What are these?
+  # offset offsets (all?) the vertex position in {x,y,z}, don't know why
     offset = [ 0., 5.5, 411. ]
+    # Fiducial volume cuts? Never used
     fvLo = [ -300., -100., 50. ]
     fvHi = [ 300., 100., 450. ]
+    # Also never used
     collarLo = [ -320., -120., 30. ]
     collarHi = [ 320., 120., 470. ]
 
@@ -50,8 +54,13 @@ def loop( events, dspt, tgeo, tout ):
             t_lepKE[0] = 0.
             t_rmmsKE[0] = -1.
             t_lepE[0] = 0.
-            t_muonExitPt[0] = 0.0; t_muonExitPt[1] = 0.0; t_muonExitPt[2] = 0.0; 
-            t_muonExitMom[0] = 0.0; t_muonExitMom[1] = 0.0; t_muonExitMom[2] = 0.0; 
+            #t_muonExitPt = (0.,0.,0.)
+            t_muonExitPt = [0]*3
+            #t_muonExitPt[0] = 0.0; t_muonExitPt[1] = 0.0; t_muonExitPt[2] = 0.0; 
+            #print t_muonExitPt[0], t_muonExitPt[1], t_muonExitPt[2]
+            #t_muonExitMom[0] = 0.0; t_muonExitMom[1] = 0.0; t_muonExitMom[2] = 0.0; 
+            t_muonExitMom = [0]*3;
+            #print t_muonExitMom[0], t_muonExitMom[1], t_muonExitMom[2]
             t_muonExitKE[0] = 0.0
             t_muonReco[0] = -1;
             t_muScintLen[0] = 0.0;
@@ -69,27 +78,35 @@ def loop( events, dspt, tgeo, tout ):
             #print reaction
 
             # set the vertex location for output
-            for i in range(3): 
-                t_vtx[i] = vertex.GetPosition()[i] / 10. - offset[i] # cm
+            for i in range(3): t_vtx[i] = vertex.GetPosition()[i] / 10. - offset[i] # cm
 
             # fiducial vertex pre-cut
             #if abs(t_vtx[0]) > 310. or abs(t_vtx[1]) > 110. or t_vtx[2] < 40. or t_vtx[2] > 360.:
             #    continue
 
             ileptraj = -1
+            # Number of final state particles in the vertex
             nfsp = 0
             # get the lepton kinematics from the edepsim file
             for ipart,particle in enumerate(vertex.Particles):
+              # Energy is the last entry
                 e = particle.GetMomentum()[3]
+                # Get the momentum (px^2+py^2+pz^2)
                 p = (particle.GetMomentum()[0]**2 + particle.GetMomentum()[1]**2 + particle.GetMomentum()[2]**2)**0.5
                 m = (e**2 - p**2)**0.5
-                t_fsPdg[nfsp] = particle.GetPDGCode()
+
+                # Save the final state particle to the output file
+                pdg = particle.GetPDGCode()
+
+                t_fsPdg[nfsp] = pdg
                 t_fsPx[nfsp] = particle.GetMomentum()[0]
                 t_fsPy[nfsp] = particle.GetMomentum()[1]
                 t_fsPz[nfsp] = particle.GetMomentum()[2]
                 t_fsE[nfsp] = e
+
+                # Incrememnt the number of final state particles
                 nfsp += 1
-                pdg = particle.GetPDGCode()
+
                 if abs(pdg) in [11,12,13,14]:
                     ileptraj = particle.GetTrackId()
                     t_lepPdg[0] = pdg
@@ -102,20 +119,25 @@ def loop( events, dspt, tgeo, tout ):
                     #print "Lepton KE: ", t_lepKE[0]
 
             assert ileptraj != -1, "There isn't a lepton??"
+            # Save the number of final state particles
             t_nFS[0] = nfsp
 
-
+            # Only look at mu+/-
             if abs(t_lepPdg[0]) != 13: continue
 
             # If there is a muon, determine how to reconstruct its momentum and charge
             exit = False
             inrmms = False
 
+            # Get the lepton trajectory
             leptraj = event.Trajectories[ileptraj]
 
             pPrev = None
+            # Loop over the TrajectoryPoints in the lepton trajectory
             for p in leptraj.Points:
+              # Position, not pT!
                 pt = p.GetPosition()
+                # Get in what node this happened
                 node = tgeo.FindNode( pt.X(), pt.Y(), pt.Z() )
                 volName = node.GetName()
                 active = False
@@ -303,9 +325,10 @@ def loop( events, dspt, tgeo, tout ):
             tout.Fill()
         ient += 1
 
+# Start main program
 if __name__ == "__main__":
 
-    ROOT.gROOT.SetBatch(1)
+    ROOT.gROOT.SetBatch(True)
 
     parser = OptionParser()
     parser.add_option('--outfile', help='Output file name', default="out.root")
@@ -316,6 +339,8 @@ if __name__ == "__main__":
     parser.add_option('--grid', action='store_true', help='grid mode', default=False)
 
     (args, dummy) = parser.parse_args()
+
+    MAX_PARTICLES=100
 
     # make an output ntuple
     fout = ROOT.TFile( args.outfile, "RECREATE" )
@@ -362,15 +387,15 @@ if __name__ == "__main__":
     tout.Branch('muScintEnergy',t_muScintEnergy,'muScintEnergy/F')
     t_nFS = array('i',[0])
     tout.Branch('nFS',t_nFS,'nFS/I')
-    t_fsPdg = array('i',100*[0])
+    t_fsPdg = array('i',MAX_PARTICLES*[0])
     tout.Branch('fsPdg',t_fsPdg,'fsPdg[nFS]/I')
-    t_fsPx = array('f',100*[0.])
+    t_fsPx = array('f',MAX_PARTICLES*[0.])
     tout.Branch('fsPx',t_fsPx,'fsPx[nFS]/F')
-    t_fsPy = array('f',100*[0.])
+    t_fsPy = array('f',MAX_PARTICLES*[0.])
     tout.Branch('fsPy',t_fsPy,'fsPy[nFS]/F')
-    t_fsPz = array('f',100*[0.])
+    t_fsPz = array('f',MAX_PARTICLES*[0.])
     tout.Branch('fsPz',t_fsPz,'fsPz[nFS]/F')
-    t_fsE = array('f',100*[0.])
+    t_fsE = array('f',MAX_PARTICLES*[0.])
     tout.Branch('fsE',t_fsE,'fsE[nFS]/F')
     xpt = ROOT.std.vector('float')()
     zpt = ROOT.std.vector('float')()
@@ -378,7 +403,7 @@ if __name__ == "__main__":
     tout.Branch('zpt', zpt)
     
     
-
+    # Have we loaded up the shared object for edep-sim libs
     loaded = False
     tgeo = None
 
@@ -395,7 +420,7 @@ if __name__ == "__main__":
             fname = "%s/edep.%d.root" % (args.topdir,run)
         else:
             fname = "%s/%s.%d.edepsim.root" % (args.topdir, neutrino, run)
-        print fname
+        print "Loading up "+fname
 
         #fname = fname.replace("/pnfs","root://fndca1.fnal.gov:1094//pnfs/fnal.gov/usr")
         # see if it is an OK file
@@ -407,6 +432,7 @@ if __name__ == "__main__":
             print "File is crap: %s" % fname
             continue
 
+        # Load up edep-sim libs
         if not loaded:
             loaded = True
             tf.MakeProject("EDepSimEvents","*","RECREATE++")
@@ -419,6 +445,7 @@ if __name__ == "__main__":
             tgeo = tf.Get("EDepSimGeometry")
         tf.Close() # done with this one
 
+    # Run the main loop over the events
     loop( events, dspt, tgeo, tout )
 
     fout.cd()
