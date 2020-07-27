@@ -42,25 +42,20 @@ def loop( events, dspt, tgeo, tout ):
 
             ## initialize output variables
             t_ievt[0] = ient
-            t_vtx[0]=0.0; t_vtx[1]=0.0; t_vtx[2]=0.0;
-            t_p3lep[0]=0.0; t_p3lep[1]=0.0; t_p3lep[2]=0.0;
-            t_lepDeath[0]=0.0; t_lepDeath[1]=0.0; t_lepDeath[2]=0.0;
+            t_vtx = [0]*3
+            t_p3lep = [0]*3
+            t_lepDeath = [0]*3
             # In SSRI
-            t_muonDeath[0]=0.0; t_muonDeath[1]=0.0; t_muonDeath[2]=0.0;
-            t_muonBirth[0]=0.0; t_muonBirth[1]=0.0; t_muonBirth[2]=0.0;
+            t_muonDeath = [0]*3
+            t_muonBirth = [0]*3
 
-            t_lepRMMS[0]=0.0; t_lepRMMS[1]=0.0; t_lepRMMS[2]=0.0;
+            t_lepRMMS = [0]*3
             t_lepPdg[0] = 0
             t_lepKE[0] = 0.
             t_rmmsKE[0] = -1.
             t_lepE[0] = 0.
-            #t_muonExitPt = (0.,0.,0.)
             t_muonExitPt = [0]*3
-            #t_muonExitPt[0] = 0.0; t_muonExitPt[1] = 0.0; t_muonExitPt[2] = 0.0; 
-            #print t_muonExitPt[0], t_muonExitPt[1], t_muonExitPt[2]
-            #t_muonExitMom[0] = 0.0; t_muonExitMom[1] = 0.0; t_muonExitMom[2] = 0.0; 
             t_muonExitMom = [0]*3;
-            #print t_muonExitMom[0], t_muonExitMom[1], t_muonExitMom[2]
             t_muonExitKE[0] = 0.0
             t_muonReco[0] = -1;
             t_muScintLen[0] = 0.0;
@@ -69,13 +64,12 @@ def loop( events, dspt, tgeo, tout ):
             t_muScintEnergy[0] = 0.0;
 
             xpt.clear()
+            ypt.clear()
             zpt.clear()
 
             #if ient != 5819: break
             # now ID numucc
             reaction=vertex.GetReaction()
-            #reaction=0
-            #print reaction
 
             # set the vertex location for output
             for i in range(3): t_vtx[i] = vertex.GetPosition()[i] / 10. - offset[i] # cm
@@ -87,6 +81,7 @@ def loop( events, dspt, tgeo, tout ):
             ileptraj = -1
             # Number of final state particles in the vertex
             nfsp = 0
+
             # get the lepton kinematics from the edepsim file
             for ipart,particle in enumerate(vertex.Particles):
               # Energy is the last entry
@@ -112,11 +107,8 @@ def loop( events, dspt, tgeo, tout ):
                     t_lepPdg[0] = pdg
                     # set the muon momentum for output
                     for i in range(3): t_p3lep[i] = particle.GetMomentum()[i]
-                    #t_lepKE[0] = (particle/GetMomentum().Mag2() + muon_mass*2)**0.5 - muon_mass
-                    #print "Lepton KE: ", t_lepKE[0]
                     t_lepKE[0] = e - m
                     t_lepE[0] = e
-                    #print "Lepton KE: ", t_lepKE[0]
 
             assert ileptraj != -1, "There isn't a lepton??"
             # Save the number of final state particles
@@ -144,9 +136,6 @@ def loop( events, dspt, tgeo, tout ):
 
                 pPos = ROOT.TVector3( pt.X()/10. - offset[0], pt.Y()/10. - offset[1], pt.Z()/10. - offset[2] )
 
-                #if pPrev is not None:
-                #    print "z %1.2f dz %1.2f vol %s" % (pPos.z(), pPos.z() - pPrev.z(), volName)
-            
                 if "LAr" in volName or "PixelPlane" in volName or "sPlane" in volName: # in active volume, update exit points
                     t_muonExitPt[0] = pt.X() / 10. - offset[0]
                     t_muonExitPt[1] = pt.Y() / 10. - offset[1]
@@ -205,6 +194,7 @@ def loop( events, dspt, tgeo, tout ):
                 #print "Start X: ", hStart.x()
                 #print "Start Z: ", hStart.z()
                 xpt.push_back(hStart.x())
+                ypt.push_back(hStart.y())
                 zpt.push_back(hStart.z())
                 
             
@@ -265,6 +255,7 @@ def loop( events, dspt, tgeo, tout ):
                 hStop = ROOT.TVector3( hit.GetStop()[0]/10.-offset[0], hit.GetStop()[1]/10.-offset[1], hit.GetStop()[2]/10.-offset[2] )
 
                 xpt.push_back(hStart.x())
+                ypt.push_back(hStart.y())
                 zpt.push_back(hStart.z())
                 #print "hStart.z(): ", hStart.z()
                 #print "hStart.x(): ", hStart.x()
@@ -398,10 +389,11 @@ if __name__ == "__main__":
     t_fsE = array('f',MAX_PARTICLES*[0.])
     tout.Branch('fsE',t_fsE,'fsE[nFS]/F')
     xpt = ROOT.std.vector('float')()
+    ypt = ROOT.std.vector('float')()
     zpt = ROOT.std.vector('float')()
     tout.Branch('xpt', xpt)
+    tout.Branch('ypt', ypt)
     tout.Branch('zpt', zpt)
-    
     
     # Have we loaded up the shared object for edep-sim libs
     loaded = False
@@ -424,10 +416,11 @@ if __name__ == "__main__":
 
         #fname = fname.replace("/pnfs","root://fndca1.fnal.gov:1094//pnfs/fnal.gov/usr")
         # see if it is an OK file
-        #if not os.access( fname, os.R_OK ):
-        #    print "Can't access file: %s" % fname
-        #    continue
+        if not os.access( fname, os.R_OK ):
+            print "Can't access file: %s" % fname
+            continue
         tf = ROOT.TFile.Open( fname )
+
         if tf.TestBit(ROOT.TFile.kRecovered): # problem with file
             print "File is crap: %s" % fname
             continue
