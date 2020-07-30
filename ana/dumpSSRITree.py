@@ -42,20 +42,20 @@ def loop( events, dspt, tgeo, tout ):
 
             ## initialize output variables
             t_ievt[0] = ient
-            t_vtx = [0]*3
-            t_p3lep = [0]*3
-            t_lepDeath = [0]*3
+            t_vtx = [0.]*3
+            t_p3lep = [0.]*3
+            t_lepDeath = [0.]*3
             # In SSRI
-            t_muonDeath = [0]*3
-            t_muonBirth = [0]*3
+            t_muonDeath = [0.]*3
+            t_muonBirth = [0.]*3
 
-            t_lepRMMS = [0]*3
+            t_lepRMMS = [0.]*3
             t_lepPdg[0] = 0
             t_lepKE[0] = 0.
             t_rmmsKE[0] = -1.
             t_lepE[0] = 0.
-            t_muonExitPt = [0]*3
-            t_muonExitMom = [0]*3;
+            t_muonExitPt = [0.]*3
+            t_muonExitMom = [0.]*3;
             t_muonExitKE[0] = 0.0
             t_muonReco[0] = -1;
             t_muScintLen[0] = 0.0;
@@ -67,9 +67,8 @@ def loop( events, dspt, tgeo, tout ):
             ypt.clear()
             zpt.clear()
 
-            #if ient != 5819: break
             # now ID numucc
-            reaction=vertex.GetReaction()
+            t_Reac=vertex.GetReaction()
 
             # set the vertex location for output
             for i in range(3): t_vtx[i] = vertex.GetPosition()[i] / 10. - offset[i] # cm
@@ -106,7 +105,9 @@ def loop( events, dspt, tgeo, tout ):
                     ileptraj = particle.GetTrackId()
                     t_lepPdg[0] = pdg
                     # set the muon momentum for output
-                    for i in range(3): t_p3lep[i] = particle.GetMomentum()[i]
+                    for i in range(3): 
+                      t_p3lep[i] = particle.GetMomentum()[i]
+                      #print t_p3lep[i]
                     t_lepKE[0] = e - m
                     t_lepE[0] = e
 
@@ -145,7 +146,6 @@ def loop( events, dspt, tgeo, tout ):
                     t_muonExitMom[2] = p.GetMomentum().z()
                     
                     t_muonExitKE[0] = (p.GetMomentum().Mag2() + muon_mass*2)**0.5 - muon_mass
-                    #print "Muon KE ", t_muonExitKE[0]
                 else:
                     if not exit:
                         t_muonExitPt[0] = pt.X() / 10. - offset[0]
@@ -188,35 +188,20 @@ def loop( events, dspt, tgeo, tout ):
             if len(ar_muon_hits) < 3: continue
 
             ar_trk_length_gcm2 = 0.
-            #print ""
             for idx, hit in enumerate(ar_muon_hits):
                 hStart = ROOT.TVector3( hit.GetStart()[0]/10.-offset[0], hit.GetStart()[1]/10.-offset[1], hit.GetStart()[2]/10.-offset[2] )
-                #print "Start X: ", hStart.x()
-                #print "Start Z: ", hStart.z()
                 xpt.push_back(hStart.x())
                 ypt.push_back(hStart.y())
                 zpt.push_back(hStart.z())
                 
             
             # just use vertex and LAr endpoint for first pass
-            #hArStart = ROOT.TVector3 (t_vtx[0], t_vtx[1], t_vtx[2])
-            #hArEnd = ROOT.TVector3( t_muonExitPt[0], t_muonExitPt[1], t_muonExitPt[2] )
             hArStart=ROOT.TVector3(ar_muon_hits[0].GetStart()[0]/10.-offset[0], ar_muon_hits[0].GetStart()[1]/10.-offset[1], ar_muon_hits[0].GetStart()[2]/10.-offset[2])
             hArEnd=ROOT.TVector3(ar_muon_hits[-1].GetStart()[0]/10.-offset[0], ar_muon_hits[-1].GetStart()[1]/10.-offset[1], ar_muon_hits[-1].GetStart()[2]/10.-offset[2])
-            #print "Start z: ",hArStart.z()
-            #print "End z: ",hArEnd.z()
             ar_dh = (hArEnd-hArStart).Mag()
             ar_dz = hArEnd.z()-hArStart.z()
                 
-            #print "ar_dh ", ar_dh
-            #print "ar_dz ", ar_dz
-            #if ar_dz == 0: continue
             ar_trk_length_gcm2 = 1.4 * ar_dh
-            #print "Event # ", ient
-            #print "AR Start Z ", hArStart.z()
-            #print "AR End Z ", hArEnd.z()
-            #print "AR TRACK LENGTH", ar_trk_length_gcm2
-
             
 
             #-------------------------------------------------------
@@ -257,8 +242,6 @@ def loop( events, dspt, tgeo, tout ):
                 xpt.push_back(hStart.x())
                 ypt.push_back(hStart.y())
                 zpt.push_back(hStart.z())
-                #print "hStart.z(): ", hStart.z()
-                #print "hStart.x(): ", hStart.x()
                 # this isn't the first hit, so we can start to build a track
                 if hPrev is not None:
                     # thin layer is 3cm air + 1cm scint + 1.5cm steel = 5.5cm pitch
@@ -313,6 +296,9 @@ def loop( events, dspt, tgeo, tout ):
             #ratio = 0. if not trk_length_gcm2 else t_rmmsKE[0]/trk_length_gcm2
             #print "%d,  %s Corrected Track Length %1.1f, out of Total muon KE %1.1f, (or ssri KE: %1.1f) planes %d, rmms length %1.1f, ar_trk_length %1.3f" % (ient, endVolName, 2.*t_muScintLen[0], t_lepKE[0], t_muonExitKE[0], total_planes, trk_length_gcm2, ar_trk_length_gcm2)
 
+            #jfor i in range(3): 
+              #t_p3lep[i] = particle.GetMomentum()[i]
+              #jprint t_p3lep[i]
             tout.Fill()
         ient += 1
 
@@ -336,6 +322,8 @@ if __name__ == "__main__":
     # make an output ntuple
     fout = ROOT.TFile( args.outfile, "RECREATE" )
     tout = ROOT.TTree( "tree","tree" )
+    t_Reac = array('i', [0])
+    tout.Branch('reac', t_Reac, 'reac/I')
     t_ievt = array('i',[0])
     tout.Branch('ievt',t_ievt,'ievt/I')
     t_Ev = array('f', [0.])
@@ -388,6 +376,8 @@ if __name__ == "__main__":
     tout.Branch('fsPz',t_fsPz,'fsPz[nFS]/F')
     t_fsE = array('f',MAX_PARTICLES*[0.])
     tout.Branch('fsE',t_fsE,'fsE[nFS]/F')
+
+    # The x and z position of the primary lepton
     xpt = ROOT.std.vector('float')()
     ypt = ROOT.std.vector('float')()
     zpt = ROOT.std.vector('float')()
