@@ -19,8 +19,8 @@ const double TMS_Transition_Layer_gap = 9.5; // Gap for TMS region that is betwe
 const double TMS_Thick_Layer_gap = 8.0; // Gap for TMS region that is thick iron layer
 const int TMS_Max_Planes = 8; // Number of planes in TMS
 
-bool dumpSSRITree(std::string filename) {
-  std::cout << "Got " << filename << std::endl;
+bool dumpSSRITree(std::string filename, std::string output_filename) {
+  std::cout << "Got " << filename << ", writing to " << output_filename << std::endl;
 
   // Offset offsets (all?) the vertex position in {x,y,z}, don't know why
   const double offset[] = { 0., 5.5, 411. };
@@ -57,13 +57,13 @@ bool dumpSSRITree(std::string filename) {
 
   //////////////////////////////////////////////////
   // Setup the output tree
-  std::string output_filename = filename.substr(0, filename.find(".root"));
-  output_filename += "_output.root";
   TFile *output = new TFile(output_filename.c_str(), "RECREATE" );
   TTree *tree_out = new TTree("tree", "tree");
 
   std::string ReactionString;
   int ievt;
+  bool SegInLAr;
+  bool SegInTMS;
   float E_nu;
   int PDG_nu;
   int LepPDG;
@@ -85,6 +85,7 @@ bool dumpSSRITree(std::string filename) {
   float LepRMMS[3];
   float MuonExitPt[3];
   float MuonExitMom[3];
+  float MuonTMSEntryMom[3];
   const int MAX_PARTICLES = 100;
   int PDGFinalState[MAX_PARTICLES];
   float PxFinalState[MAX_PARTICLES];
@@ -94,9 +95,11 @@ bool dumpSSRITree(std::string filename) {
   std::vector<float> xPos;
   std::vector<float> yPos;
   std::vector<float> zPos;
+  std::vector<float> tPos;
   std::vector<float> xPosLep;
   std::vector<float> yPosLep;
   std::vector<float> zPosLep;
+  std::vector<float> tPosLep;
 
   tree_out->Branch("reac", &ReactionString);
   tree_out->Branch("ievt", &ievt, "ievt/I");
@@ -115,11 +118,14 @@ bool dumpSSRITree(std::string filename) {
   tree_out->Branch("muonExitPt", MuonExitPt, "muonExitPt[3]/F");
   tree_out->Branch("muonExitMom", MuonExitMom, "muonExitMom[3]/F");
   tree_out->Branch("muonExitKE", &MuonExitKE, "muonExitKE/F");
+  tree_out->Branch("muonTMSEntryMom", &MuonTMSEntryMom, "muonTMSEntryMom[3]/F");
   tree_out->Branch("muonReco", &MuonReco, "muonReco/I");
   tree_out->Branch("muScintLen", &MuonScintLen, "muScintLen/F");
   tree_out->Branch("muLArLen", &MuonLArLen, "muLArLen/F");
   tree_out->Branch("muScintLenOld", &MuonScintLen_Old, "muScintLenOld/F");
   tree_out->Branch("muScintEnergy", &MuonScintEnergy, "muScintEnergy/F");
+  tree_out->Branch("LArSeg", &SegInLAr, "LArSeg/O");
+  tree_out->Branch("TMSSeg", &SegInTMS, "TMSSeg/O");
   tree_out->Branch("nFS", &nFinalState, "nFS/I");
   tree_out->Branch("fsPdg", PDGFinalState, "fsPdg[nFS]/I");
   tree_out->Branch("fsPx", PxFinalState, "fsPx[nFS]/F");
@@ -129,9 +135,11 @@ bool dumpSSRITree(std::string filename) {
   tree_out->Branch("xpt", &xPos);
   tree_out->Branch("ypt", &yPos);
   tree_out->Branch("zpt", &zPos);
+  tree_out->Branch("tpt", &tPos);
   tree_out->Branch("xptLep", &xPosLep);
   tree_out->Branch("yptLep", &yPosLep);
   tree_out->Branch("zptLep", &zPosLep);
+  tree_out->Branch("tptLep", &tPosLep);
   // Finished the output branches
   //////////////////////////////////////////////////
 
@@ -161,7 +169,7 @@ bool dumpSSRITree(std::string filename) {
       LepKE = RMMS_KE = LepE = MuonExitKE = MuonScintLen = MuonLArLen = MuonScintLen_Old = MuonScintEnergy = -999;
       nFinalState = 0;
       for (int j = 0; j < 3; ++j) {
-        Lepton[j] = Vertex[j] = LeptonDeath[j] = MuonDeath[j] = MuonBirth[j] = LepRMMS[j] = MuonExitPt[j] = MuonExitMom[j] = -999;
+        Lepton[j] = Vertex[j] = LeptonDeath[j] = MuonDeath[j] = MuonBirth[j] = LepRMMS[j] = MuonExitPt[j] = MuonExitMom[j] = MuonTMSEntryMom[j] = -999;
       }
       for (int j = 0; j < MAX_PARTICLES; ++j) {
         PDGFinalState[j] = PxFinalState[j] = PyFinalState[j] = PzFinalState[j] = EFinalState[j] = -999;
@@ -169,26 +177,26 @@ bool dumpSSRITree(std::string filename) {
       xPos.clear();
       yPos.clear();
       zPos.clear();
+      tPos.clear();
       xPosLep.clear();
       yPosLep.clear();
       zPosLep.clear();
+      tPosLep.clear();
       ReactionString.clear();
       // Done resetting variables
 
       ReactionString = vtx.GetReaction();
       ievt = i;
-      // Technicall a TLorentzVector
+      // Technically a TLorentzVector
       for (int j = 0; j < 3; ++j) Vertex[j] = (vtx.GetPosition()[j])/10. - offset[j]; // in cm
 
+      // Find the lepton
       int LepIndex = -1;
       std::vector<TG4PrimaryParticle> particles = vtx.Particles;
       // Loop over the particles in the vertex
       for (TG4PrimaryVertex::PrimaryParticles::iterator jt = particles.begin(); jt != particles.end(); ++jt) {
         TG4PrimaryParticle particle = *jt;
         // Get some fundamentals about the particle
-        double E = particle.GetMomentum()[3];
-        double p = particle.GetMomentum().Vect().Mag();
-        double m = particle.GetMomentum().Mag();
         int pdg = particle.GetPDGCode();
 
         PDGFinalState[nFinalState] = pdg;
@@ -204,19 +212,19 @@ bool dumpSSRITree(std::string filename) {
         else if (PDG_nu > 0 && PDG_nu == pdg+1) LepIndex = nFinalState;
         // If anti-neutrino, look for charged lepton PDG of PDG_nu+1
         else if (PDG_nu < 0 && PDG_nu == pdg-1) LepIndex = nFinalState;
+        //if (abs(pdg) == 13) LepIndex = nFinalState;
 
         // Increment final state particle counter
         nFinalState++;
       }
 
+      // Look only at muons for now
+      if (abs(PDGFinalState[LepIndex]) != 13) continue;
 
+      // Check that we had an outgoing lepton
       if (LepIndex == -1) {
-        std::cerr << "No charged lepton found in event " << ievt << std::endl;
+        std::cerr << "No lepton found in event " << ievt << std::endl;
       }
-
-      // Look only at muons
-      if (abs(PDGFinalState[LepIndex] != 13)) continue;
-
 
       // Now extract the Lepton kinematics
       TG4PrimaryParticle lepton = particles[LepIndex];
@@ -224,6 +232,11 @@ bool dumpSSRITree(std::string filename) {
       LepPDG = lepton.GetPDGCode();
       LepKE = lepton.GetMomentum().E()-lepton.GetMomentum().M();
       LepE = EFinalState[LepIndex];
+
+      // Also save the PrimaryId?
+      int LepTrackId = particles[LepIndex].GetTrackId();
+      //std::cout << "leptrackid: " << LepTrackId << std::endl;
+
 
       // If there is a muon, determine how to reconstruct its momentum and charge
       bool Exit = false;
@@ -233,8 +246,11 @@ bool dumpSSRITree(std::string filename) {
       TG4Trajectory LepTraj = event->Trajectories[LepIndex];
       // Loop over the points that the lepton trajectory left
       std::vector<TG4TrajectoryPoint> LepPoints = LepTraj.Points;
-      // Save the previous point
       TLorentzVector PreviousPoint(-999, -999, -999, -999);
+      int index = 0;
+      int total = LepPoints.size();
+      //std::cout << "***" << std::endl;
+      //std::cout << "Event " << ievt << " lepton points" << std::endl;
       for (TG4Trajectory::TrajectoryPoints::iterator jt = LepPoints.begin(); jt != LepPoints.end(); ++jt) {
         TG4TrajectoryPoint pt = *jt;
         TLorentzVector Point = pt.GetPosition();
@@ -245,44 +261,39 @@ bool dumpSSRITree(std::string filename) {
         }
         std::string VolumeName = node->GetName();
         bool active = false;
-        // Get the position of this point
-        TVector3 Pos(Point.X()/10.-offset[0], Point.Y()/10.-offset[1], Point.Z()/10.-offset[2]);
+        //std::cout << index << "/" << total << ", name: " << VolumeName << " (x,y,z)=(" << Point.X()/10.-offset[0] << ", " << Point.Y()/10.-offset[1] << ", " << Point.Z()/10.-offset[2] << ") dist in z: " << (Point.Z()/10.)-(PreviousPoint.Z()/10.) << " (px,py,pz)=(" << pt.GetMomentum().Px() << ", " << pt.GetMomentum().Py() << ", " << pt.GetMomentum().Pz() << ")" << std::endl;
 
         // Easiest to just do a string comparison, unfortunately
         // If in active LAr volume or pixels, update the exit points
         if (VolumeName.find("LAr") != std::string::npos || 
             VolumeName.find("PixelPlane") != std::string::npos || 
             VolumeName.find("sPlane") != std::string::npos) {
-          MuonExitPt[0] = Pos.X();
-          MuonExitPt[1] = Pos.Y();
-          MuonExitPt[2] = Pos.Z();
           // What momentum did it have when it exited the LAr
           MuonExitMom[0] = pt.GetMomentum().Px();
           MuonExitMom[1] = pt.GetMomentum().Py();
           MuonExitMom[2] = pt.GetMomentum().Pz();
           // Assume it's a muon to get a KE estimate
           MuonExitKE = sqrt(pt.GetMomentum().Mag2()+mass_mu*mass_mu) - mass_mu;
+          MuonExitPt[0] = Point.X()/10.-offset[0];
+          MuonExitPt[1] = Point.Y()/10.-offset[1];
+          MuonExitPt[2] = Point.Z()/10.-offset[2];
         // If not in tracked LAr
         } else {
 
-          // Update that trajectory has exited the LAr
-          if (!Exit) {
-            MuonExitPt[0] = Pos.X();
-            MuonExitPt[1] = Pos.Y();
-            MuonExitPt[2] = Pos.Z();
-            Exit = true;
-          }
-
           // Check if it's inside the TMS
-          // Read what the kinetic energy is when entering the TMS
+          // Read what the kinetic energy and momentum when it is when entering the TMS
           if (!InTMS && (VolumeName.find("RMMS") != std::string::npos || 
-                          VolumeName.find("modulelayer") != std::string::npos)) {
+                         VolumeName.find("modulelayer") != std::string::npos)) {
             RMMS_KE = sqrt(pt.GetMomentum().Mag2()+mass_mu*mass_mu) - mass_mu;
+            MuonTMSEntryMom[0] = pt.GetMomentum().Px();
+            MuonTMSEntryMom[1] = pt.GetMomentum().Py();
+            MuonTMSEntryMom[2] = pt.GetMomentum().Pz();
             InTMS = true;
           }
         }
         // Update the previous point
         PreviousPoint = Point;
+        index++;
       }
 
       // Get the last point to see where the trajectory went
@@ -300,20 +311,25 @@ bool dumpSSRITree(std::string filename) {
         else MuonReco = 0;
       }
 
-      // Now look at the individual hits in ArgonCube and TMS for this event
+      // Remember if we've seen hits in the LAr or the TMS
+      SegInLAr = false;
+      SegInTMS = false;
+
       for (TG4HitSegmentDetectors::iterator jt = event->SegmentDetectors.begin(); jt != event->SegmentDetectors.end(); ++jt) {
 
         // Get the name of the active detector
         std::string DetString = (*jt).first;
-        // Remember if this is a hit in the LAr or the TMS
-        bool SegInLAr = false;
-        bool SegInTMS = false;
+
+        // Remember what this segment is in
+        bool ThisSegInLAr = false;
+        bool ThisSegInTMS = false;
+
         // If in ArgonCube
         if (DetString == "ArgonCube") {
-          SegInLAr = true;
+          ThisSegInLAr = true;
         // If in RMMS
         } else if (DetString == "rmmsvol") {
-          SegInTMS = true;
+          ThisSegInTMS = true;
         }
 
         // The container for all of the segments
@@ -325,35 +341,40 @@ bool dumpSSRITree(std::string filename) {
         TG4HitSegmentContainer AllHits;
 
         // Then loop over each of hit segments in this container
+        // Now look at the individual hits in ArgonCube and TMS for this event
+        //std::cout << "***" << std::endl;
         for (TG4HitSegmentContainer::iterator kt = hitsegments.begin(); kt != hitsegments.end(); ++kt) {
           // The current segment
           TG4HitSegment seg = (*kt);
+          //std::cout << seg.GetPrimaryId() << std::endl;
 
           // Loop over the contributors to this track segment
           for (TG4HitSegment::Contributors::iterator ct = seg.Contrib.begin(); ct != seg.Contrib.end(); ++ct) {
             int Contributor = *ct;
+            //int Contributor = 0;
             // Get the trajectory that produced this hit
             TG4Trajectory Trajectory = event->Trajectories[Contributor];
             int ParentId = Trajectory.GetParentId();
-            int PDGcode = Trajectory.GetPDGCode();
-            // If from the fundamental interaction vertex
-            if (ParentId == -1) {
+            int pdg = Trajectory.GetPDGCode();
+            int TrackId = Trajectory.GetTrackId();
+            // If from the fundamental interaction vertex and the lepton
+            if (ParentId == -1 && Contributor == TrackId && TrackId == LepTrackId) {
               // Check if it's a lepton matching the neutrino PDG
-              if ((PDG_nu > 0 && PDG_nu == PDGcode+1) || 
-                  (PDG_nu < 0 && PDG_nu == PDGcode-1)) {
+              if ((PDG_nu > 0 && PDG_nu == pdg+1) || 
+                   PDG_nu < 0 && PDG_nu == pdg-1) {
+              //if (abs(pdg) == 13) {
                 LeptonHits.push_back(seg);
               } else {
                 AllHits.push_back(seg);
               }
-            // Not from the primary interaction
+              // Not from the primary interaction
             } else {
               AllHits.push_back(seg);
             }
           }
         }
 
-        //std::cout << DetString << " hits:" << hitsegments.size() << " LeptonHits: " << LeptonHits.size() << " AllHits: " << AllHits.size() << std::endl;
-
+          //std::cout << "***" << std::endl;
         // Now we have all the hits and all the lepton hits
         // Save them into the positions
         for (TG4HitSegmentContainer::iterator kt = LeptonHits.begin(); kt != LeptonHits.end(); ++kt) {
@@ -361,34 +382,46 @@ bool dumpSSRITree(std::string filename) {
           xPosLep.push_back(seg.GetStart()[0]/10.-offset[0]);
           yPosLep.push_back(seg.GetStart()[1]/10.-offset[1]);
           zPosLep.push_back(seg.GetStart()[2]/10.-offset[2]);
+          tPosLep.push_back(seg.GetStart()[3]);
         }
         for (TG4HitSegmentContainer::iterator kt = AllHits.begin(); kt != AllHits.end(); ++kt) {
           TG4HitSegment seg = *kt;
           xPos.push_back(seg.GetStart()[0]/10.-offset[0]);
           yPos.push_back(seg.GetStart()[1]/10.-offset[1]);
           zPos.push_back(seg.GetStart()[2]/10.-offset[2]);
+          tPos.push_back(seg.GetStart()[3]);
         }
 
         // If this segment is in the LAr
-        if (SegInLAr) {
-        // Require at least three hit segments in the LAr for our lepton, else don't count it
-          if (LeptonHits.size() < 3) continue;
+        if (ThisSegInLAr) {
+          // Require at least three hit segments in the LAr for our lepton, else don't count it
+          if (LeptonHits.size() < 3) {
+            continue;
+          }
+          // Remember that we have a valid segment in ArgonCube
+          SegInLAr = true;
           TVector3 LArStart(LeptonHits.front().GetStart()[0]/10.-offset[0],
-                            LeptonHits.front().GetStart()[1]/10.-offset[1],
-                            LeptonHits.front().GetStart()[2]/10.-offset[2]);
+              LeptonHits.front().GetStart()[1]/10.-offset[1],
+              LeptonHits.front().GetStart()[2]/10.-offset[2]);
           TVector3 LArEnd(LeptonHits.back().GetStart()[0]/10.-offset[0],
-                          LeptonHits.back().GetStart()[1]/10.-offset[1],
-                          LeptonHits.back().GetStart()[2]/10.-offset[2]);
+              LeptonHits.back().GetStart()[1]/10.-offset[1],
+              LeptonHits.back().GetStart()[2]/10.-offset[2]);
           double LAr_dist = (LArEnd-LArStart).Mag();
           double LAr_dist_z = LArEnd.z()-LArStart.z();
           // Track length
           double LAr_Track_Length = LAr_density*LAr_dist;
           MuonLArLen = LAr_Track_Length;
 
-        // If this segment is in the TMS
-        } else if (SegInTMS) {
+          //for (int dim = 0; dim < 3; ++dim) MuonExitPt[dim] = LeptonHits.back().GetStart()[dim]/10. - offset[dim];
+
+          // If this segment is in the TMS
+        } else if (ThisSegInTMS) {
           // Need more than one hit
-          if (LeptonHits.size() < 2) continue;
+          if (LeptonHits.size() < 2) {
+            continue;
+          }
+          // Remember that we have a valid segment in the TMS
+          SegInTMS = true;
           // Save the muon birth point in the TMS
           for (int dim = 0; dim < 3; ++dim) MuonBirth[dim] = LeptonHits.front().GetStart()[dim]/10. - offset[dim];
           // Now count up the deposited energy in the lepton track
@@ -402,15 +435,24 @@ bool dumpSSRITree(std::string filename) {
           for (TG4HitSegmentContainer::iterator kt = LeptonHits.begin(); kt != LeptonHits.end(); ++kt) {
             // Get the hit segment
             TG4HitSegment TMS_seg = *kt;
+            //std::cout << "***" << std::endl;
+            //std::cout << "Tracklength for hit in edepsim: " << TMS_seg.GetTrackLength() << std::endl;
+            //std::cout << " TMS hit Lep (x,y,z) = ";
+            //for (int dim = 0; dim < 3; ++ dim) std::cout << TMS_seg.GetStart()[dim]/10-offset[dim] << " to " << TMS_seg.GetStop()[dim]/10-offset[dim] << ", ";
+
+            
             // Incremement the energy deposit
             TMS_EnergyDeposit += TMS_seg.GetEnergyDeposit();
 
             TVector3 TMS_HitStart(TMS_seg.GetStart()[0]/10.-offset[0],
-                                 TMS_seg.GetStart()[1]/10.-offset[1],
-                                 TMS_seg.GetStart()[2]/10.-offset[2]);
+                TMS_seg.GetStart()[1]/10.-offset[1],
+                TMS_seg.GetStart()[2]/10.-offset[2]);
             TVector3 TMS_HitEnd(TMS_seg.GetStop()[0]/10.-offset[0],
-                               TMS_seg.GetStop()[1]/10.-offset[1],
-                               TMS_seg.GetStop()[2]/10.-offset[2]);
+                TMS_seg.GetStop()[1]/10.-offset[1],
+                TMS_seg.GetStop()[2]/10.-offset[2]);
+
+            // Subtract off the previous hit
+            //std::cout << " z dist: " << TMS_HitStart.Z()-TMS_HitStart_Prev.Z() << std::endl;
 
             // Check that we've moved hit
             if (TMS_HitStart_Prev.Mag() == 0) {
@@ -426,8 +468,12 @@ bool dumpSSRITree(std::string filename) {
             double TMS_dist = (TMS_HitStart-TMS_HitStart_Prev).Mag();
 
             // If the gap between subsequent hits is less than the scintillator bar
-            // We've had at least two hits in the same bar: skip these
-            if (TMS_gap < TMS_Scint_Width) continue;
+            // We've had at least two hits in the same bar: skip these since the energy is already added
+            if (TMS_gap < TMS_Thin_Layer_gap) {
+              TMS_HitStart_Prev = TMS_HitStart;
+              TMS_HitEnd_Prev = TMS_HitEnd;
+              continue;
+            }
 
             // If we're in the thin layer
             if (TMS_HitStart.z() < TMS_Thin_Layer_z_end) {
@@ -439,24 +485,36 @@ bool dumpSSRITree(std::string filename) {
                 std::cerr << "Previous hit start point: " << TMS_HitStart_Prev.Mag() << std::endl;
                 std::cerr << "Current hit start point:  " << TMS_HitStart.Mag() << std::endl;
                 std::cerr << "Event: " << ievt << std::endl;
+                TMS_HitStart_Prev = TMS_HitStart;
+                TMS_HitEnd_Prev = TMS_HitEnd;
                 continue;
+                //break;
               }
               TMS_total_planes += nplanes;
               // Have gone through 1cm scintillator, 1.5cm steel, 3cm air divided by cos(theta)
               TMS_TrackLength += (1.0*1.05+1.5*7.85)*nplanes*TMS_dist/TMS_gap;
+              //std::cout << "Simply length of the track: " << (1+1.5+3)*nplanes*TMS_dist/TMS_gap << std::endl;
+              //std::cout << "Full: " << (1.0*1.05+1.5*7.85)*nplanes*TMS_dist/TMS_gap << std::endl;
+              // Without density
+              //std::cout << "Scint only: " << (1.0*1.05)*nplanes*TMS_dist/TMS_gap << std::endl;
 
-            // If we're in transition module, where the gap is 9.5
+              // If we're in transition module, where the gap is 9.5
             } else if (TMS_HitStart.z()-TMS_Transition_Layer_z_end < 0.1) {
-              if (fabs(TMS_gap-TMS_Transition_Layer_gap) > 1.E-6) continue;
+              //if (fabs(TMS_gap-TMS_Transition_Layer_gap) > 1.E-6) continue;
+              if (fabs(TMS_gap-TMS_Transition_Layer_gap) > 1.E-6) break;
               int nplanes = TMS_gap/TMS_Transition_Layer_gap;
               // Increment
               TMS_total_planes += nplanes;
               // Have gone through 1cm scintillator, 4cm steel, 4.5cm air
               TMS_TrackLength += (1.0*1.05+4.0*7.85)*nplanes*TMS_dist/TMS_gap;
-            // In the thick region, where the gap is 8cm
+              //std::cout << "Simply length of the track: " << (7.85+1)*nplanes*TMS_dist/TMS_gap << std::endl;
+              //std::cout << "Full: " << (1.0*1.05+1.5*7.85)*nplanes*TMS_dist/TMS_gap << std::endl;
+              //std::cout << "Scint only: " << (1.0*1.05)*nplanes*TMS_dist/TMS_gap << std::endl;
+              // In the thick region, where the gap is 8cm
             } else {
               int nplanes = TMS_gap/TMS_Thick_Layer_gap;
-              if (fabs(nplanes-TMS_gap/TMS_Thick_Layer_gap) > 1.E-6) continue;
+              //if (fabs(nplanes-TMS_gap/TMS_Thick_Layer_gap) > 1.E-6) continue;
+              if (fabs(nplanes-TMS_gap/TMS_Thick_Layer_gap) > 1.E-6) break;
               if (nplanes > TMS_Max_Planes) {
                 std::cerr << "Found a segment spanning more planes than the maximum!" << std::endl;
                 std::cerr << "Diff: " << TMS_gap << " Gap: " << TMS_Thick_Layer_gap << " N_planes: " << nplanes << std::endl;
@@ -464,7 +522,10 @@ bool dumpSSRITree(std::string filename) {
                 std::cerr << "Previous hit start point: " << TMS_HitStart_Prev.Mag() << std::endl;
                 std::cerr << "Current hit start point:  " << TMS_HitStart.Mag() << std::endl;
                 std::cerr << "Event: " << ievt << std::endl;
+                TMS_HitStart_Prev = TMS_HitStart;
+                TMS_HitEnd_Prev = TMS_HitEnd;
                 continue;
+                //break;
               }
               TMS_total_planes += nplanes;
               // Have gone through 1cm scintillator, 4cm steel, 3cm air
@@ -485,6 +546,11 @@ bool dumpSSRITree(std::string filename) {
         }
 
       } // End loop over TG4HitSegmentDetectors (all the segments in various detectors in the event)
+      // Add in the extra track length
+      MuonScintLen += extra_trk_length;
+
+      // Look at events which have both segments in the LAr and in the TMS
+      //if (SegInLAr == false || SegInTMS == false) continue;
 
       tree_out->Fill();
     } // End loop over the vertices in the event
@@ -501,11 +567,24 @@ bool dumpSSRITree(std::string filename) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2) {
-    std::cerr << "Need one argument: the EDepSim output file" << std::endl;
+  if (argc != 2 && argc !=3) {
+    std::cerr << "Need one argument: [EDepSim output file] [Output filename]" << std::endl;
     return -1;
   }
-  bool ok = dumpSSRITree(std::string(argv[1]));
+
+  std::string EDepSimFile = std::string(argv[1]);
+
+  std::string OutputFile;
+  // If only two arguments are given, 
+  if (argc == 2) {
+    std::string filename = std::string(argv[1]);
+    OutputFile = filename.substr(0, filename.find(".root"));
+    OutputFile += "_output.root";
+  } else {
+    OutputFile = std::string(argv[2]);
+  }
+
+  bool ok = dumpSSRITree(EDepSimFile, OutputFile);
   if (ok) return 0;
   else return -1;
 }
