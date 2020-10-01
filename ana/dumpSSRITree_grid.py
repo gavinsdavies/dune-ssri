@@ -205,14 +205,14 @@ def loop( events, dspt, tgeo, tout ):
             # If the track enters the TMS, it has passed through the passive material and one layer of 1.5cm steel
             # Accounting for the angle, add up the track length
             if len(muon_hits) > 0:
-              hMuonStart = muon_hits[0].Start
+              hMuonStart = muon_hits[0].Start.Vect()
               t_muonBirth[0] = hMuonStart[0]/10.-offset[0]
               t_muonBirth[1] = hMuonStart[1]/10.-offset[1]
               t_muonBirth[2] = hMuonStart[2]/10.-offset[2]
               # Reconstruct the exit point in the LAr
               LArExit = ROOT.TVector3(t_muonExitPt[0], t_muonExitPt[1], t_muonExitPt[2])
               # Add in the extra length from traversing the dead region
-              costheta = (hMuonStart.z()-LArExit.z())/(hMuonStart-LArExit).Mag()
+              costh = (hMuonStart.Z()-LArExit.Z())/(hMuonStart-LArExit).Mag()
               trk_length_gcm2 += extra_trk_length/costh
               # And the extra length from the first thin layer of steel and scintillator
               # Should the scinillator really be added?
