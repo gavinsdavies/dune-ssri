@@ -11,11 +11,9 @@
 // Essentially a copy of the edep-sim THit
 class TMS_TrueHit {
   public:
+    TMS_TrueHit();
     TMS_TrueHit(TG4HitSegment &edep_seg);
     TMS_TrueHit(double x, double y, double z, double t, double E);
-
-    TMS_TrueHit();
-    ~TMS_TrueHit();
 
     double GetX() {return x;};
     double GetY() {return y;};

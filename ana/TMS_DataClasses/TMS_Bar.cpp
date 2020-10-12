@@ -30,6 +30,7 @@ TMS_Bar::TMS_Bar(double xpos, double ypos, double zpos, int BarNo) {
   BarNumber = BarNo;
 }
 
+// Construct a bar from a hit
 TMS_Bar::TMS_Bar(TG4HitSegment &edep_seg) {
 }
 

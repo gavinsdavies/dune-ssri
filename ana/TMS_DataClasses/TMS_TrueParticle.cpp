@@ -17,14 +17,14 @@ TMS_TrueParticle::TMS_TrueParticle() :
 // Set the true particle from a segment
 // Can't set from TG4HitSegment because it does not know about the trajectories
 // Needs to be set from the event?
-/*
-TMS_TrueParticle(TG4HitSegment &segment) {
+TMS_TrueParticle::TMS_TrueParticle(TG4HitSegment &segment) {
 
+  /*
   // Get the primary particle from the segment
   int PrimaryId = segment.Contrib[0];
 
   FourVector = particle.GetMomentum();
   PDG = particle.GetPDGCode();
   TrackId = particle.GetTrackId();
+  */
 }
-*/

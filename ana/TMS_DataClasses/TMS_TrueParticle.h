@@ -14,7 +14,7 @@ class TMS_TrueParticle {
     // Construct directly from edep-sim
     TMS_TrueParticle(TG4PrimaryParticle &particle);
     TMS_TrueParticle(TG4HitSegment &hit);
-    ~TMS_TrueParticle();
+    //~TMS_TrueParticle();
 
     // Give four vector setters
     void SetFourVector(TLorentzVector Vec) { FourVector = Vec; };

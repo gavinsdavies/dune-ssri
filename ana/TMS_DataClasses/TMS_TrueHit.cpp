@@ -1,5 +1,13 @@
 #include "TMS_TrueHit.h"
 
+TMS_TrueHit::TMS_TrueHit() :
+  x(-999.99),
+  y(-999.99),
+  z(-999.99),
+  t(-999.99),
+  EnergyDeposit(-999.99)
+{};
+
 TMS_TrueHit::TMS_TrueHit(double x, double y, double z, double t, double E) {
   SetX(x);
   SetY(y);
