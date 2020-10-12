@@ -41,8 +41,6 @@ class TMS_Geom {
     TMS_Geom() {
       geom = NULL;
     };
-    //TMS_Geom(TMS_Geom const &);
-    //void operator=(TMS_Geom const &);
 
     // The actual geometry
     TGeoManager *geom;

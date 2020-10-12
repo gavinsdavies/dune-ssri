@@ -7,8 +7,9 @@ TMS_Event::TMS_Event(TG4Event &event) {
   //CheckIntegrity();
 
   // Loop over the primary vertices
-  for (TG4PrimaryVertexContainer::iterator it = event->Primaries.begin(); it != event->Primaries.end(); ++it) {
+  for (TG4PrimaryVertexContainer::iterator it = event.Primaries.begin(); it != event.Primaries.end(); ++it) {
 
+    TG4PrimaryVertex vtx = *it;
     // Get the particle trajectories
     std::vector<TG4PrimaryParticle> particles = vtx.Particles;
     // Loop over the particles in the vertex
@@ -20,8 +21,8 @@ TMS_Event::TMS_Event(TG4Event &event) {
 
     // Do we need the tracjectory points?
     // Maybe?
-    for (TG4TrajectoryContainer::iterator jt = event->Trajectories.begin(); jt != event->Trajectories.end(); ++jt) {
-      TG4Trajectory traj = *jt 
+    for (TG4TrajectoryContainer::iterator jt = event.Trajectories.begin(); jt != event.Trajectories.end(); ++jt) {
+      TG4Trajectory traj = *jt;
 
       // traj.GetTrackId()
       // traj.GetParentId()
@@ -30,7 +31,7 @@ TMS_Event::TMS_Event(TG4Event &event) {
       // traj.GetInitialMomentum
       // traj.Points
     // Then loop over the points
-      for (traj.Points.begin(); kt != traj.Points.end(); kt++) {
+      for (std::vector<TG4TrajectoryPoint>::iterator kt = traj.Points.begin(); kt != traj.Points.end(); kt++) {
         TG4TrajectoryPoint pt = *kt;
         // pt.GetProcess()
         // pt.GetSubprocess()
@@ -40,7 +41,7 @@ TMS_Event::TMS_Event(TG4Event &event) {
     }
 
     // Loop over each hit
-    for (TG4HitSegmentDetectors::iterator jt = event->SegmentDetectors.begin(); jt != event->SegmentDetectors.end(); ++jt) {
+    for (TG4HitSegmentDetectors::iterator jt = event.SegmentDetectors.begin(); jt != event.SegmentDetectors.end(); ++jt) {
       // Only look at TMS hits
       std::string DetString = (*jt).first;
       if (DetString != "rmmsvol") continue;

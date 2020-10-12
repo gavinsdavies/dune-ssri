@@ -1,16 +1,17 @@
 #include "TMS_TrueParticle.h"
 
-TMS_TrueParticle(TG4PrimaryParticle &particle) {
+TMS_TrueParticle::TMS_TrueParticle(TG4PrimaryParticle &particle) {
   FourVector = particle.GetMomentum();
   PDG = particle.GetPDGCode();
   TrackId = particle.GetTrackId();
 }
 
-TMS_TrueParticle() :
-  PDG(-999);
-  FourVector(-999.99, -999.99, -999.99, -999.99);
-  Parent(-999);
-  TrackId(-999);
+TMS_TrueParticle::TMS_TrueParticle() :
+  PDG(-999),
+  FourVector(-999.99, -999.99, -999.99, -999.99),
+  Parent(-999),
+  TrackId(-999)
+{
 }
 
 // Set the true particle from a segment

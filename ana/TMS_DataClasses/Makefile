@@ -18,10 +18,7 @@ SO_FLAGS= -shared $(ROOT_INC)
 # Our lovely collection of libs
 LIB_OBJ = $(EDEP_LIBS) $(ROOT_LIBS)
 
-TMS_OBJ = TMS_Bar.o TMS_Hit.o TMS_TrueHit.o
-
-ConvertToTMS.exe: libTMS_Prod.so
-	$(CXX) $(CXXFLAGS) -o $< $(LIB_OBJ)
+TMS_OBJ = TMS_Bar.o TMS_Hit.o TMS_TrueHit.o TMS_Event.o TMS_TrueParticle.o
 
 %.o:%.cpp
 	$(CXX) -c $(CXXFLAGS) $<
