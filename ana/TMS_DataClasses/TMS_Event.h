@@ -17,7 +17,7 @@
 class TMS_Event {
   public:
     TMS_Event(TG4Event &event);
-    ~TMS_Event();
+    //~TMS_Event();
 
     // The getters once the class is completed
     std::vector<TMS_Hit> GetHits() {return TMS_Hits;};

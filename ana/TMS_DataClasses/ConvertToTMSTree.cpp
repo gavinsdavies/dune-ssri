@@ -36,10 +36,9 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
   events->SetBranchAddress("Event", &event);
 
   // Load up the geometry
-  TMS::Geom.GetInstance().SetGeometry(geom);
+  TMS_Geom::GetInstance().SetGeometry(geom);
 
   int N_entries = events->GetEntries();
-  int ient = 0;
 
   std::cout << "Starting loop over " << N_entries << " entries..." << std::endl;
   TStopwatch Timer;
@@ -51,11 +50,11 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
 
     if (i % (N_entries/10) == 0) {
       std::cout << "Processed " << i << "/" << N_entries << " (" << double(i)*100./N_entries << "%)" << std::endl;
-      std::cout << "  E_nu: " << E_nu << " PDG: " << PDG_nu << std::endl;
     }
 
-    TMS_Event tms_event = TMS_Event(event);
+    TMS_Event tms_event = TMS_Event(*event);
 
+    /*
     // Loop over the primary vertices
     for (TG4PrimaryVertexContainer::iterator it = event->Primaries.begin(); it != event->Primaries.end(); ++it) {
 
@@ -86,7 +85,7 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
 
         // Get the name of the active detector
         std::string DetString = (*jt).first;
-
+//
         // Remember what this segment is in
         bool ThisSegInLAr = false;
         bool ThisSegInTMS = false;
@@ -105,8 +104,8 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
           // Loop over the contributors to this track segment
           for (TG4HitSegment::Contributors::iterator ct = seg.Contrib.begin(); ct != seg.Contrib.end(); ++ct) {
             int Contributor = *ct;
-            //int Contributor = 0;
-            // Get the trajectory that produced this hit
+            int Contributor = 0;
+             Get the trajectory that produced this hit
             TG4Trajectory Trajectory = event->Trajectories[Contributor];
             int ParentId = Trajectory.GetParentId();
             int pdg = Trajectory.GetPDGCode();
@@ -116,6 +115,7 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
 
       } 
     } // End loop over the vertices in the event
+    */
   } // End loop over all the events
 
   Timer.Stop();

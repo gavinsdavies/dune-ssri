@@ -26,7 +26,7 @@ class TMS_Hit {
     TMS_Hit(double x, double y, double z, double t, double E);
     TMS_Hit(TG4HitSegment &edep_seg);
     TMS_Hit();
-    ~TMS_Hit();
+    //~TMS_Hit();
 
     // Helper function to find the bar of a current position
     TMS_Bar FindBar(double x, double y, double z);

@@ -23,7 +23,12 @@ TMS_OBJ = TMS_Bar.o TMS_Hit.o TMS_TrueHit.o TMS_Event.o TMS_TrueParticle.o
 %.o:%.cpp
 	$(CXX) -c $(CXXFLAGS) $<
 
+all: libTMS_Prod ConvertToTMSTree.exe
+
 libTMS_Prod: libTMS_Prod.a libTMS_Prod.so
+
+ConvertToTMSTree.exe: ConvertToTMSTree.cpp libTMS_Prod
+	$(CXX) $(CXXFLAGS) -o ConvertToTMSTree.exe ConvertToTMSTree.cpp -L ./ -lTMS_Prod $(LIB_OBJ)
 
 # Make the archive
 libTMS_Prod.a: $(TMS_OBJ)
