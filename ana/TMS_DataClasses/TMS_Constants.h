@@ -39,7 +39,7 @@ namespace TMS_Const {
   const double TMS_Thick_Steel_Width = 4.0;
 
   // Offsets to put the TMS in the middle
-  const double offset[] = { 0., 5.5, 411. };
+  const double TMS_Det_Offset[] = { 0., 5.5, 411. };
 
   // Volume name of TMS related hits
   const std::string TMS_VolumeName = "rmmsvol";
