@@ -45,26 +45,27 @@ def loop( tree, hNum, hNumLen, hDenom, hNumX, hDenomX, hNumQ2, hDenomQ2, hVXY, h
         n += 1
         print "event ", n
 
-        # True numu CC
+        # True numu CC (or rather just mu+/-)
         if abs(entry.lepPdg) != 13: continue
         print "passed lepton req"
 
-        # vertex cut
+        # vertex cut (LAr fiducial)
         if abs(entry.vtx[0]) > 300. or abs(entry.vtx[1]) > 100. or entry.vtx[2] < 50. or entry.vtx[2] > 350.: continue
 
+        # true muon momentum
         mu = ROOT.TVector3( entry.p3lep[0], entry.p3lep[1], entry.p3lep[2] )
+        # Muon momentum when exiting active LAr volume
         muExit = ROOT.TVector3( entry.muonExitMom[0], entry.muonExitMom[1], entry.muonExitMom[2] )
         theta = mu.Angle(beam_angle)
         thetadeg = (180./3.1416)*theta
 
-
+        # Lepton Kinetic energy (convert to MeV w/ adjustment for muon mass)
         Elep = entry.lepKE/1000. + 0.105658
         plep = mu.Mag()/1000.
         plepexit = muExit.Mag()/1000.
         Q2 = 2*entry.Ev*(Elep - plep*cos(theta)) - 0.105658**2
 
         
-        #if thetadeg < 20:
         hDenom.Fill( entry.lepKE/1000., thetadeg )
         hDenomQ2.Fill( entry.Ev, Q2 )
 
@@ -74,16 +75,19 @@ def loop( tree, hNum, hNumLen, hDenom, hNumX, hDenomX, hNumQ2, hDenomQ2, hVXY, h
         hMomAC.Fill(plep)
         larKE = entry.lepKE - entry.muonExitKE
         rec = False
-        if entry.muonReco == 1:
+        # LAr contained
+        if entry.muonReco == 1: 
             hNum[0].Fill( entry.lepKE/1000., thetadeg )
             hNumLen[0].Fill( entry.lepKE/1000., entry.muScintLen )
             hNumQ2[0].Fill( entry.Ev, Q2 )
             hMomCON.Fill( plep )
             rec = True
+        # endpoint not in active material (i.e. uncontained)
         elif entry.muonReco == 0:
             hNum[2].Fill( entry.lepKE/1000., thetadeg )
             hNumQ2[2].Fill( entry.Ev, Q2 )
             rec = False
+        # SSRI contained
         elif entry.muonReco == 2:
             #hNum[1].Fill( entry.lepKE/1000., thetadeg )
             #hNumLen[1].Fill( entry.lepKE/1000., entry.muScintLen )
@@ -94,10 +98,24 @@ def loop( tree, hNum, hNumLen, hDenom, hNumX, hDenomX, hNumQ2, hDenomQ2, hVXY, h
         match = False
         signed_dist = 0.
 
+        # TODO: Make these easier to understand
+        # muonBirth = first muon hit in SSRI
+        # muonDeath = last muon hit in SSRI
+        # Values from the geometry
+        # Here we're cutting so we only have front-entering (Z < 733. cm)
+        # i.e. nothing from the side, only the first plane
+        # SSRI active cuts:
+        #    Endpoint Z < 1300 cm
+        #    -260 < Y < -25 cm
+        #    -300 < X < 300 cm and non-zero KE
         if entry.muonBirth[2] < 733. and entry.muonDeath[2] < 1300. and entry.muonDeath[1] < 25. and entry.muonDeath[1] > -260. and entry.muonDeath[0] < 300. and entry.muonDeath[0] > -300. and entry.muonExitKE > 0.:
             #if entry.muonReco == 2 and entry.lepPdg == -13:
             #if (entry.muonDeath[0] < 165. and entry.muonDeath[0] > 10. or entry.muonDeath[0] > -165. and entry.muonDeath[0] < -10.):# and (entry.muonBirth[0] < 170. and entry.muonBirth[0] > 10. or entry.muonBirth > -170. and entry.muonBirth < -10.):
-
+            # Now we're refining the selection further to only select
+            # the stips where the uniform field exists (avoiding the
+            # gappy regions in XZ space
+            # (hmm, should also probably restrict in XY?
+            # muon endpoint:  -165 < X < -10, 10 < X < 165 cm
             if (entry.muonDeath[0] < 165. and entry.muonDeath[0] > 10. or entry.muonDeath[0] > -165. and entry.muonDeath[0] < -10.):# and (entry.muonBirth[0] < 170. and entry.muonBirth[0] > 10. or entry.muonBirth > -170. and entry.muonBirth < -10.):
 
                 hNum[1].Fill( entry.lepKE/1000., thetadeg )
@@ -105,6 +123,7 @@ def loop( tree, hNum, hNumLen, hDenom, hNumX, hDenomX, hNumQ2, hDenomQ2, hVXY, h
                 hNumLen[1].Fill( entry.lepKE/1000., entry.muScintLen )
                 hNumQ2[1].Fill( entry.Ev, Q2 )
 
+                # These are used for calculating the signed distance metric
                 x1 = entry.muonExitPt[0]
                 z1 = entry.muonExitPt[2]
                 x2 = entry.muonBirth[0]
@@ -114,11 +133,13 @@ def loop( tree, hNum, hNumLen, hDenom, hNumX, hDenomX, hNumQ2, hDenomQ2, hVXY, h
             
                 num = (-(z2-z1)*x3 + (x2-x1)*z3 + (x1*z2 - z1*x2))
                 denom = sqrt(((x2-x1)**2) + ((z2-z1)**2))
+                # skip values where denom = 0
                 if denom == 0: signed_dist = 0.
                 else: signed_dist = num/denom
                 #print ""
                 #print " ", entry.lepPdg
                 #print "Signed distance: ", signed_dist
+                #Save histograms for (anti-)neutrino separately
                 if entry.lepPdg == 13:
                     hSignDist[0].Fill(signed_dist)
                     hSignDistMom[0].Fill(signed_dist, plepexit)
@@ -145,17 +166,19 @@ def loop( tree, hNum, hNumLen, hDenom, hNumX, hDenomX, hNumQ2, hDenomQ2, hVXY, h
                 hMuonBirthYZ.Fill( entry.muonBirth[2], entry.muonBirth[1] )
                 hMuonBirthXZ.Fill( entry.muonBirth[2], entry.muonBirth[0] )
             
-                #hED.Fill( entry.muonExitKE/1000., entry.muScintLen )
+                # exit KE vs. track length
+                hED.Fill( entry.muonExitKE/1000., entry.muScintLen )
 
-                #reconstructed mom vs. "true" 
+                #reconstructed track length vs. "true" momentum 
                 hED2.Fill( plepexit, entry.muScintLen )
+                # leaving here, but this was for some testing using linear
+                # energy estimation and 2D fit
                 hMomRes2.Fill(plepexit, ((entry.muScintLen+5.42)/4963.)-plepexit)
-                #if (1.9*entry.muScintLen-entry.muonExitKE)/entry.muonExitKE < -0.2 or (1.9*entry.muScintLen-entry.muonExitKE)/entry.muonExitKE > 0.3:            
-                    
-                #if plepexit > 1. and plepexit < 1.5:
-                #hMomRes.Fill( entry.lepKE/1000., ((2*entry.muScintLen + 1.55*entry.muLArLen)-entry.lepKE)/entry.lepKE )
+                # 2D momentum resolution, reco KE vs. (reco-true/true)
+                # Note: 2 MeV/cm energy loss for MIP
+                # 1.9 is from approximation from LArFactor plot
                 hMomRes.Fill( entry.muonExitKE/1000., (1.9*entry.muScintLen-entry.muonExitKE)/entry.muonExitKE )
-                #hMomRes.Fill( entry.lepKE/1000., (1.3*(entry.muLArLen+entry.muScintLen)-entry.lepKE)/entry.lepKE )
+
                 dedx = 0.
                 if entry.muScintLen == 0.:
                     dedx = 0.
