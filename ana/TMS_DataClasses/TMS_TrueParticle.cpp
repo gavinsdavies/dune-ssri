@@ -11,8 +11,7 @@ TMS_TrueParticle::TMS_TrueParticle() :
   PDG(-999),
   FourVector(-999.99, -999.99, -999.99, -999.99),
   Parent(-999),
-  TrackId(-999)
-{
+  TrackId(-999) {
 }
 
 // Set the true particle from a segment
@@ -32,8 +31,8 @@ TMS_TrueParticle::TMS_TrueParticle(const TG4HitSegment &segment) {
 
 void TMS_TrueParticle::Print() {
   std::cout << "Printing TMS_TrueParticle class: " << std::endl;
-  std::cout << "  PDG = " << PDG << std::endl;
-  std::cout << "  (Px, Py, Pz, E) = " << " (" << FourVector.Px() << ", " << FourVector.Py() << ", " << FourVector.Pz() << ", " << FourVector.E() << ")" << std::endl;
+  std::cout << "  PDG: " << PDG << std::endl;
+  std::cout << "  (Px, Py, Pz, E): (" << FourVector.Px() << ", " << FourVector.Py() << ", " << FourVector.Pz() << ", " << FourVector.E() << ")" << std::endl;
   std::cout << "  Parent: " << Parent << std::endl;
   std::cout << "  TrackId: " << TrackId << std::endl;
 }

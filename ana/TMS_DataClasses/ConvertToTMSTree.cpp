@@ -38,6 +38,7 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
 
   // Load up the geometry
   TMS_Geom::GetInstance().SetGeometry(geom);
+  TMS_Geom::GetInstance().SetFileName(filename);
 
   int N_entries = events->GetEntries();
 
@@ -49,6 +50,7 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
     events->GetEntry(i);
     gRoo->GetEntry(i);
 
+    if (i > 10) break;
     if (i % (N_entries/10) == 0) {
       std::cout << "Processed " << i << "/" << N_entries << " (" << double(i)*100./N_entries << "%)" << std::endl;
     }
@@ -58,7 +60,7 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
   } // End loop over all the events
 
   Timer.Stop();
-  std::cout << "Event loop took " << Timer.RealTime() << "s for " << N_entries << " (" << Timer.RealTime()/N_entries << " s/event)" << std::endl;
+  std::cout << "Event loop took " << Timer.RealTime() << "s for " << N_entries << " entries (" << Timer.RealTime()/N_entries << " s/entries)" << std::endl;
 
   return true;
 }

@@ -2,6 +2,7 @@
 #define _TMS_GEOM_H_SEEN_
 
 #include <iostream>
+#include <string>
 
 #include "TGeoManager.h"
 
@@ -26,12 +27,19 @@ class TMS_Geom {
       return this->geom;
     }
 
+    const std::string & GetFileName() { 
+      return FileName;
+    }
+
     // Set the geometry
     void SetGeometry(TGeoManager *geometry) {
       geom = geometry;
       std::cout << "Global geometry set to " << geometry->GetName() << std::endl;
     }
 
+    void SetFileName(std::string filename) {
+      FileName = filename;
+    }
 
     TMS_Geom(TMS_Geom const &) = delete;
     void operator=(TMS_Geom const &) = delete;
@@ -40,10 +48,12 @@ class TMS_Geom {
     // The empty constructor
     TMS_Geom() {
       geom = NULL;
+      FileName = "";
     };
 
     // The actual geometry
     TGeoManager *geom;
+    std::string FileName;
 };
 
 #endif

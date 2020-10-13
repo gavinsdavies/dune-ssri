@@ -32,9 +32,13 @@ class TMS_Hit {
     TMS_Bar GetBar() { return Bar; };
     void SetBar(TMS_Bar bar) { Bar = bar; };
 
+    // The true particle that created this hit
     TMS_TrueParticle GetTrueParticle();
+
+    // The true hit
     TMS_TrueHit GetTrueHit();
 
+    // Over-riders (maybe delete in future)
     void SetTrueParticle(TMS_TrueParticle part) {TrueParticle = part;};
     void SetTrueHit(TMS_TrueHit hit) {TrueHit = hit;};
 
@@ -42,6 +46,7 @@ class TMS_Hit {
     void SetT(double t) {Time = t;};
 
     double GetE() {return EnergyDeposit;};
+    double GetT() {return Time;};
 
   private:
     // The true hit (x,y,z,t)

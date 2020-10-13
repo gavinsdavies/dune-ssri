@@ -26,30 +26,81 @@ TMS_Bar::TMS_Bar(double xpos, double ypos, double zpos, int BarNo) {
   y = ypos;
   z = zpos;
   BarNumber = BarNo;
-  PlaneNumber = FindBar(x,y,z);
+  //PlaneNumber = FindBar(x,y,z);
 }
 
 // Construct a bar from a hit
 TMS_Bar::TMS_Bar(TG4HitSegment &edep_seg) {
+
+  BarNumber = -1;
+  GlobalBarNumber = -1;
+  PlaneNumber = -1;
+
+  xw = -1;
+  yw = -1;
+  zw = -1;
+
   double avgx = ( edep_seg.GetStart().X() + edep_seg.GetStop().X() ) / 2;
   double avgy = ( edep_seg.GetStart().Y() + edep_seg.GetStop().Y() ) / 2;
   double avgz = ( edep_seg.GetStart().Z() + edep_seg.GetStop().Z() ) / 2;
 
-  PlaneNumber = FindBar(avgx, avgy, avgz);
   x = avgx;
   y = avgy;
   z = avgz;
+
+  FindModules(avgx, avgy, avgz);
 
   // Now set the width and orientation of the bar
   if (PlaneNumber % 2 == 0) BarOrient = kXBar;
   else BarOrient = kYBar;
 
-  BarNumber = -1;
-  GlobalBarNumber = -1;
+}
 
-  xw = -1;
-  yw = -1;
-  zw = -1;
+// Find which bar a given x,y,z position corresponds to
+// Maybe this function should be moved to the singleton instead
+bool TMS_Bar::FindModules(double x, double y, double z) {
+
+  // Use the ROOT geometry to figure it out if available
+  TGeoManager *geom = TMS_Geom::GetInstance().GetGeometry();
+
+  // Find which node this position is equivalent too
+  geom->FindNode(x,y,z);
+  TGeoNavigator *nav = geom->GetCurrentNavigator();
+  std::string NodeName = std::string(nav->GetCurrentNode()->GetName());
+  // cd up in the geometry to find the right name
+  while (NodeName.find(TMS_Const::TMS_TopLayerName) == std::string::npos) {
+
+    // We've found the plane number
+    if (NodeName.find(TMS_Const::TMS_ModuleLayerName) != std::string::npos) {
+      PlaneNumber = nav->GetCurrentNode()->GetNumber();
+      std::cout << "Setting plane number: " << std::endl;
+      std::cout << NodeName << " " << PlaneNumber << std::endl;
+    }
+
+    else if (NodeName.find(TMS_Const::TMS_ScintLayerName) != std::string::npos) {
+      BarNumber = nav->GetCurrentNode()->GetNumber();
+      std::cout << "Setting bar number: " << std::endl;
+      std::cout << NodeName << " " << BarNumber << std::endl;
+    }
+
+    else if (NodeName.find(TMS_Const::TMS_ModuleName) != std::string::npos) {
+      GlobalBarNumber = nav->GetCurrentNode()->GetNumber();
+      std::cout << "Setting module number: " << std::endl;
+      std::cout << NodeName << " " << GlobalBarNumber << std::endl;
+    }
+
+    nav->CdUp();
+    NodeName = std::string(nav->GetCurrentNode()->GetName());
+  }
+
+  // If we've reached the world volume we don't have a scintillator hit -> return some mad bad value
+  if (BarNumber == -1 || PlaneNumber == -1 || GlobalBarNumber == -1) {
+    // Since the bar has already been created as a "error" in the above empty constructor we can just return
+    std::cout << "Bar number or plane number not found in Geometry" << std::endl;
+    return false;
+  }
+
+  return true;
 }
 
 // Find which bar a given x,y,z position corresponds to
@@ -64,13 +115,14 @@ int TMS_Bar::FindBar(double x, double y, double z) {
   TGeoNavigator *nav = geom->GetCurrentNavigator();
   std::string NodeName = std::string(nav->GetCurrentNode()->GetName());
   // cd up in the geometry to find the right name
-  while (NodeName.find("modulelayervol_PV") == std::string::npos && NodeName.find("volWorld") == std::string::npos) {
+  while (NodeName.find(TMS_Const::TMS_ModuleLayerName) == std::string::npos && 
+      NodeName.find(TMS_Const::TMS_TopLayerName) == std::string::npos) {
     nav->CdUp();
     NodeName = std::string(nav->GetCurrentNode()->GetName());
   }
 
   // If we've reached the world volume we don't have a scintillator hit -> return some mad bad value
-  if (NodeName.find("volWorld") != std::string::npos) {
+  if (NodeName.find(TMS_Const::TMS_TopLayerName) != std::string::npos) {
     // Since the bar has already been created as a "error" in the above empty constructor we can just return
     std::cout << "Bar position not found in TMS_Bar::FindBar!" << std::endl;
     return -1;
@@ -86,7 +138,6 @@ int TMS_Bar::FindBar(double x, double y, double z) {
   //x = ;
 
   int Number = nav->GetCurrentNode()->GetNumber();
-  std::cout << Number << std::endl;
 
   // If ROOT geometry isn't available, use this hard-coded mess
   return Number;

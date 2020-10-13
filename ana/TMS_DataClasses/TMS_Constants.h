@@ -1,6 +1,8 @@
 #ifndef _TMSCONSTANTS_H_SEEN_
 #define _TMSCONSTANTS_H_SEEN_
 
+#include <string>
+
 // Constants
 namespace TMS_KinConst {
   const double mass_mu = 105.6583755; // Muon mass in MeV/c2
@@ -38,6 +40,17 @@ namespace TMS_Const {
 
   // Offsets to put the TMS in the middle
   const double offset[] = { 0., 5.5, 411. };
+
+  // Volume name of TMS related hits
+  const std::string TMS_VolumeName = "rmmsvol";
+  // To find in z
+  const std::string TMS_ModuleLayerName = "modulelayervol_PV";
+  // To find scintillator "box"
+  const std::string TMS_ModuleName = "ModuleBoxvol_PV";
+  // To find scintillator "box"
+  const std::string TMS_ScintLayerName = "scinBoxlvRMMS_PV";
+  // The top layer name
+  const std::string TMS_TopLayerName = "volWorld";
 }
 
 #endif

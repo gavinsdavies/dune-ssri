@@ -36,6 +36,8 @@ class TMS_Bar {
 
     int FindBar(double x, double y, double z);
 
+    bool FindModules(double x, double y, double z);
+
   private:
     // Plane that the bar belongs in
     int PlaneNumber;

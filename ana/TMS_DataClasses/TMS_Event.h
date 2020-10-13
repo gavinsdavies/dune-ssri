@@ -36,13 +36,13 @@ class TMS_Event {
   private:
     // Hits
     std::vector<TMS_Hit> TMS_Hits;
-    // Reconstructed tracks
-    //std::vector<TMS_Track> TMS_Tracks;
     // True particles
     std::vector<TMS_TrueParticle> TMS_TrueParticles;
+    // Reconstructed tracks
+    //std::vector<TMS_Track> TMS_Tracks;
 
     // Spill number (can have many events in a spill)?
-    int SpillNumber;
+    //int SpillNumber;
 };
 
 #endif

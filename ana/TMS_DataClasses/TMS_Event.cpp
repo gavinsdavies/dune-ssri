@@ -45,7 +45,7 @@ TMS_Event::TMS_Event(TG4Event &event) {
     for (TG4HitSegmentDetectors::iterator jt = event.SegmentDetectors.begin(); jt != event.SegmentDetectors.end(); ++jt) {
       // Only look at TMS hits
       std::string DetString = (*jt).first;
-      if (DetString != "rmmsvol") continue;
+      if (DetString != TMS_Const::TMS_VolumeName) continue;
 
       TG4HitSegmentContainer tms_hits = (*jt).second;
       for (TG4HitSegmentContainer::iterator kt = tms_hits.begin(); kt != tms_hits.end(); ++kt) {
@@ -63,6 +63,7 @@ void TMS_Event::Print() {
   std::cout << "*** " << std::endl;
   std::cout << "Printing TMS_Event class from "  << __FILE__ << std::endl;
   std::cout << "  Using geometry: " << TMS_Geom::GetInstance().GetGeometry()->GetName() << ", " << TMS_Geom::GetInstance().GetGeometry()->GetTitle() << std::endl;
+  std::cout << "  From: " << TMS_Geom::GetInstance().GetFileName() << std::endl;
   std::cout << "  N Truth particles: " << TMS_TrueParticles.size() << std::endl;
   std::cout << "  N Hits: " << TMS_Hits.size() << std::endl;
   std::cout << "  IsEmpty: " << IsEmpty() << std::endl;
@@ -80,6 +81,5 @@ void TMS_Event::Print() {
     std::cout << "Hit "  << HitCount << std::endl;
     (*it).Print();
   }
-
 }
 
