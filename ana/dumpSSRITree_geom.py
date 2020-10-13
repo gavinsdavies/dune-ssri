@@ -205,20 +205,37 @@ def loop( events, dspt, tgeo, tout ):
                 if traj.GetParentId() == -1 and abs(traj.GetPDGCode()) == 13:
                     muon_hits.append(hit)
 
+            # Need at least 2 hits in the TMS to get start and end
             if len(muon_hits) < 2: continue
 
-            hMuonStart = muon_hits[0].GetStart()
-            t_muonBirth[0] = hMuonStart[0]/10.-offset[0]
-            t_muonBirth[1] = hMuonStart[1]/10.-offset[1]
-            t_muonBirth[2] = hMuonStart[2]/10.-offset[2]
-
+            # Track length
             trk_length_gcm2 = 0.
+            # Deposited energy
             de = 0.
+
+            # If the track enters the TMS, it has passed through the passive material and one layer of 1.5cm steel
+            # Accounting for the angle, add up the track length
+            if len(muon_hits) > 0:
+              hMuonStart = muon_hits[0].GetStart().Vect()
+              t_muonBirth[0] = hMuonStart[0]/10.-offset[0]
+              t_muonBirth[1] = hMuonStart[1]/10.-offset[1]
+              t_muonBirth[2] = hMuonStart[2]/10.-offset[2]
+              # Reconstruct the exit point in the LAr
+              LArExit = ROOT.TVector3(t_muonExitPt[0], t_muonExitPt[1], t_muonExitPt[2])
+              # Add in the extra length from traversing the dead region
+              costh = (hMuonStart.Z()-LArExit.Z())/(hMuonStart-LArExit).Mag()
+              trk_length_gcm2 += extra_trk_length/costh
+              # And the extra length from the first thin layer of steel and scintillator
+              # Should the scinillator really be added?
+              #trk_length_gcm2 += (1.05+1.5*7.85)/costh
+              trk_length_gcm2 += (1.5*7.85)/costh
 
             hPrev = None
             hFinal = None
             hPrevTime = 0
             total_planes = 0
+            prevlayerno = -1
+
             for idx, hit in enumerate(muon_hits):
                 de += hit.GetEnergyDeposit()
 
@@ -226,29 +243,47 @@ def loop( events, dspt, tgeo, tout ):
                 hStop = ROOT.TVector3( hit.GetStop()[0]/10.-offset[0], hit.GetStop()[1]/10.-offset[1], hit.GetStop()[2]/10.-offset[2] )
                 Time = hit.GetStart()[3]
 
-                tempnode = tgeo.FindNode( hit.GetStart()[0], hit.GetStart()[1], hit.GetStart()[2])
-                nav = tgeo.GetCurrentNavigator()
-                topnode_name = nav.GetCurrentNode().GetName()
-                # Z enumerated 
-                while "modulelayervol_PV" not in topnode_name:
-                  nav.CdUp()
-                  topnode_name = nav.GetCurrentNode().GetName()
-
-                print topnode_name
-                layerno = nav.GetCurrentNode().GetNumber()
-                print layerno
-                hStart.Print()
-
-                #nextnode = nav.FindNextBoundary();
-                #print "Next boundary: ",nextnode.GetName(), nextnode.GetVolume().GetName()
-
                 xpt.push_back(hStart.x())
                 zpt.push_back(hStart.z())
                 deposit.push_back(hit.GetEnergyDeposit())
 
-                # this isn't the first hit, so we can start to build a track
-                if hPrev is not None:
+                # Check if this point is in the same bar as the one before it
+                # Move on if it is
+                same = tgeo.IsSameLocation( hit.GetStart()[0], hit.GetStart()[1], hit.GetStart()[2])
 
+                tempnode = tgeo.FindNode( hit.GetStart()[0], hit.GetStart()[1], hit.GetStart()[2])
+                nav = tgeo.GetCurrentNavigator()
+                topnode_name = nav.GetCurrentNode().GetName()
+
+                # Z enumerated volume (each bar)
+                while "modulelayervol_PV" not in topnode_name and "volWorld" not in topnode_name:
+                  nav.CdUp()
+                  topnode_name = nav.GetCurrentNode().GetName()
+
+                # No SSRI hits (cd through the geom and found nothing)
+                if "volWorld" in topnode_name:
+                  continue
+
+                layerno = nav.GetCurrentNode().GetNumber()
+
+                # Ignore double hits in a bar for track length calculation
+                if layerno == prevlayerno or same == True:
+                  continue
+
+                # Don't want delayed hits (only look forwards)
+                if layerno < prevlayerno:
+                  continue
+
+                Consecutive = True
+                nlayers = layerno-prevlayerno
+                if nlayers != 1:
+                  Consecutive = False
+                  #print "not consecutive"
+                  #if hPrev is not None:
+                    #hPrev.Print()
+                  #hStart.Print()
+
+                if hPrev is not None:
                     # thin layer is 3cm air + 1cm scint + 1.5cm steel = 5.5cm pitch
                     # -> means 3cm+1.5cm = 4.5cm between hits
                     # Runs from 733 to 949
@@ -267,6 +302,10 @@ def loop( events, dspt, tgeo, tout ):
                     dh = (hStart-hPrev).Mag()
                     dz = hStart.z()-hPrev.z()
 
+                    #print "prevlayerno",prevlayerno
+                    #print "layerno",layerno
+                    #print "gap",gap
+
                     #Found change at 730.8-736.3
                     #Previous distance: 730.8
                     #New distance: 5.5
@@ -279,26 +318,120 @@ def loop( events, dspt, tgeo, tout ):
                     #Previous distance: 9.5
                     #New distance: 8
 
-                    
-                    # sometimes there are multiple hits within a scintillator plane, and we want to skip them
-                    # The smallest gap between hits is 3cm air +1.5cm steel -> 4.5cm
-
-                    # Inspect the geometry, find if this position is the same node
-                    same = tgeo.IsSameLocation( hit.GetStart()[0], hit.GetStart()[1], hit.GetStart()[2])
-                    tempnode = tgeo.FindNode( hit.GetStart()[0], hit.GetStart()[1], hit.GetStart()[2])
-                    if same == True:
-                      continue
+                    # Minimum gap between hits is end of scintillator bar n to beginning of scintillator bar n+1: i.e. 1.5cm air + 1.5cm steel + 1.5cm air -> 4.5cm
                     if gap < 4.5:
+                      prevlayerno = layerno
+                      hPrev = hStart
+                      hPrevTime = Time
                       continue
 
-                    timediff = Time-hPrevTime
                     # Make a cut on the time difference to avoid delayed hits
                     # Only when the xhit is not in the dead region
-                    if timediff > 2 and (abs(hStart.x()) > 182 or (abs(hStart.x()) < 170 and abs(hStart.x()) > 8)):
+                    # Time between hits can be large if the particle propagates in a region without scintillator bars
+                    timediff = Time-hPrevTime
+                    if timediff > 2 and nlayers < 2:
+                      prevlayerno = layerno
+                      hPrev = hStart
+                      hPrevTime = Time
                       continue
 
-                    # "thin layer" region up until 949.2925 (scintillator here), so gap should be 5.5
-                    if hStart.z() < 949.:
+                    # Increment the total planes traversed
+                    total_planes += nlayers
+
+                    # Account for possibility that we've had no hits whilst transitioning over more than one plane (e.g. traversed region where there is iron but no scint)
+                    # Requires a hit in the thin or transition layer
+                    if nlayers > 1:
+
+                      # First make sure the trajectory didn't exit the physical boundary of the detector
+                      # The gap is around 170 to 180 cm in x
+                      if abs(hStart.x()) > 200:
+                        # If it exited, it definitely did pass through a layer of scintillator bar to make this hit
+                        trk_length_gcm2 += 1.05
+
+                        hPrev = hStart
+                        prevlayerno = layerno
+                        hPrevTime = Time
+                        #print "trklen",trk_length_gcm2
+                        continue
+
+                      # The current layer is in thick or transition region
+                      # The previous layer was in the thin region
+                      if layerno >= 39 and prevlayerno < 39:
+                        # Count up layers traversed in thin region (up to layer 0,...,38
+                        nthins = 37-prevlayerno
+                        # Check if we've traversed the transition layer (between 38 and 39)
+                        if layerno > 38:
+                          ntrans = 1
+                        else:
+                          ntrans = 0
+
+                        nthick = layerno-39
+                        #print "thin,trans,thick=",nthins, ntrans, nthick
+
+                        # Since we had no hits in the scintiallator bars here, we only went through iron
+                        # In thin region, that's 1.5cm iron
+                        trk_length_gcm2 += (1.5*7.85) * nthins * dh/dz
+                        # Account for transition region, where it's a 5.5cm iron
+                        trk_length_gcm2 += ((1.5+4.0)*7.85) * ntrans * dh/dz
+                        # Account for thick layers, where it's 4.5cm iron
+                        trk_length_gcm2 += (4.0*7.85) * nthick * dh/dz
+
+                        #print "trklen",trk_length_gcm2
+
+                      # If hits in adjacent bars, it went through scintillator and iron
+                      # If not, it did not pass through scintillator, only iron
+                      else:
+
+                        if layerno > 39 and prevlayerno > 39:
+                          nthick = layerno-prevlayerno
+                          trk_length_gcm2 += (4.0*7.85) * nthick * dh/dz
+                        elif layerno < 39 and prevlayerno < 39:
+                          nthin = layerno-prevlayerno
+                          trk_length_gcm2 += (1.5*7.85) * nthin * dh/dz
+
+                        #print "trklen",trk_length_gcm2
+
+
+                    # else we just calculate is as per usual
+                    else:
+
+                    # Anything before 39 is thin module
+                      if layerno < 39:
+                      #print "thin ",gap
+                      # Get the gap right from the geometry
+                        nplanes = int(gap/5.5)
+                      # Should be equal to layerno-prevlayerno
+
+                        trk_length_gcm2 += (1.05 + 1.5*7.85) * nlayers * dh/dz
+
+                    # Layer number 39 is transition layer
+                      elif layerno == 39:
+                      #print "trans ", gap
+                        nplanes = int(gap/9.5)
+
+                      # A hit here definitely means it passed through scintillator and transition
+                        trk_length_gcm2 += (1.05+(1.5+4.0)*7.85) * nlayers * dh/dz
+
+                    # Anything after 39 is thick module
+                      else:
+                      #print "thick ", gap
+                        nplanes = int(gap/8.0)
+                        trk_length_gcm2 += (1.05+4.0*7.85) * nlayers * dh/dz
+
+                      #print "trklen",trk_length_gcm2
+
+                      '''
+                      if abs(nplanes - nlayers)>1:
+                        print "***"
+                        #print "EHH", nplanes, gap, timediff
+                        print "EHH", nplanes, gap
+                        print nlayers, layerno, prevlayerno
+                        hPrev.Print()
+                        hStart.Print()
+                        sys.exit(-1)
+                      '''
+
+                      '''
                         nplanes = int(gap/5.5)
                         # if nplanes isn't an integer, then we've reached the end of the track
                         # and there is some other hit that is super far away typically that is messing up the length
@@ -313,46 +446,34 @@ def loop( events, dspt, tgeo, tout ):
                           # we must have gone through 1cm scint + 1.5cm steel + 3cm air, divide by cos(theta)
                           trk_length_gcm2 += (1.05 + 1.5*7.85) * nplanes * dh/dz
 
-                        '''
-                        if abs(nplanes - gap/5.5) > 1.E-3: 
-                          print nplanes
-                          print abs(nplanes-gap/5.5), gap, ient
-                          hPrev.Print()
-                          hStart.Print()
-                          break
-                        if nplanes > nplanes_cut: # find an intolerable gap?
-                            break
-                        '''
-
-
                     # The transition layer gap
                     # Between 939.8+1 to 949.3
                     #elif (hStart.z() - 949.3) < 0.1: # the transition module, the gap is 9.5
+
+                    # Scintillator layer 39/40
                     elif (hStart.z() < 949.3+1.5): # Scintillator strip goes from 949.3 to 949.3+1 (add in 1.5 for good measure)
+                        print layerno
                         if abs(gap-9.5) < 1.E-3: # Gap is 9.5cm
                             trk_length_gcm2 += (1.05 + (4.+1.5)*7.85) * dh/dz # Gone through 1 cm scintillator, 4cm steel, 1.5cm steel, 3cm air
                             total_planes += 1 # Add in the plane
 
                     else: #"thick layer region, gap should be 8cm
                         nplanes = int(gap/8.)
-                        '''
-                        if abs(nplanes - gap/8.) > 1.E-3: # the track is gone to shit
-                            print nplanes
-                            print abs(nplanes-gap/8.), gap, ient
-                            hPrev.Print()
-                            hStart.Print()
-                            break
-                        if nplanes > nplanes_cut:
-                            break
-                        '''
                         total_planes += nplanes
 
                         if gap > 8 and nplanes > 1:
                           trk_length_gcm2 += (4.*7.85) * nplanes * dh/dz
                         else:
                           trk_length_gcm2 += (1.05 + 4.*7.85) * nplanes * dh/dz
-                hPrev = hStart # update it
+                  '''
+
+                # Update the previous layer number
+                prevlayerno = layerno
+                # Update start position
+                hPrev = hStart
+                # Update the time
                 hPrevTime = Time
+                # Update the final point
                 hFinal = hStop
 
             t_muonDeath[0] = hFinal.x()
