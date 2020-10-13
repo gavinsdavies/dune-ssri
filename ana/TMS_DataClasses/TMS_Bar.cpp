@@ -40,6 +40,7 @@ TMS_Bar::TMS_Bar(TG4HitSegment &edep_seg) {
   yw = -1;
   zw = -1;
 
+  // Get the average distance
   double avgx = ( edep_seg.GetStart().X() + edep_seg.GetStop().X() ) / 2;
   double avgy = ( edep_seg.GetStart().Y() + edep_seg.GetStop().Y() ) / 2;
   double avgz = ( edep_seg.GetStart().Z() + edep_seg.GetStop().Z() ) / 2;
@@ -48,7 +49,10 @@ TMS_Bar::TMS_Bar(TG4HitSegment &edep_seg) {
   y = avgy;
   z = avgz;
 
+  // Find the bar in the geometry
   FindModules(avgx, avgy, avgz);
+
+  // Then correct the position of the bar?
 
   // Now set the width and orientation of the bar
   if (PlaneNumber % 2 == 0) BarOrient = kXBar;

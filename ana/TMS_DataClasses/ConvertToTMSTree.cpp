@@ -10,8 +10,13 @@
 #include "EDepSim/TG4PrimaryVertex.h"
 
 // TMS includes
+// Geometry singleton
 #include "TMS_Geom.h"
+// Event class
 #include "TMS_Event.h"
+// Event viewer singleton
+#include "TMS_EventViewer.h"
+
 /*
 #include "TMS_Constants.h"
 #include "TMS_Hit.h"
@@ -50,13 +55,18 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
     events->GetEntry(i);
     gRoo->GetEntry(i);
 
-    if (i > 10) break;
+    if (i > 50) break;
     if (i % (N_entries/10) == 0) {
       std::cout << "Processed " << i << "/" << N_entries << " (" << double(i)*100./N_entries << "%)" << std::endl;
     }
 
+    // Make a TMS event
     TMS_Event tms_event = TMS_Event(*event);
-    tms_event.Print();
+    // View it
+    TMS_EventViewer::GetViewer().Draw(tms_event);
+    //tms_event.Print();
+    //tms_event.Draw();
+
   } // End loop over all the events
 
   Timer.Stop();

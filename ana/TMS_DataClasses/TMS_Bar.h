@@ -23,7 +23,7 @@ class TMS_Bar {
 
     // Getter functions
     int GetBarNumber() { return BarNumber; };
-    int GetBarType() { return BarOrient; };
+    BarType GetBarType() { return BarOrient; };
     double GetX() { return x; };
     double GetY() { return y; };
     double GetZ() { return z; };

@@ -29,14 +29,14 @@ class TMS_Hit {
     TMS_Hit();
     //~TMS_Hit();
 
-    TMS_Bar GetBar() { return Bar; };
+    const TMS_Bar &GetBar() { return Bar; };
     void SetBar(TMS_Bar bar) { Bar = bar; };
 
     // The true particle that created this hit
-    TMS_TrueParticle GetTrueParticle();
+    const TMS_TrueParticle &GetTrueParticle();
 
     // The true hit
-    TMS_TrueHit GetTrueHit();
+    const TMS_TrueHit &GetTrueHit();
 
     // Over-riders (maybe delete in future)
     void SetTrueParticle(TMS_TrueParticle part) {TrueParticle = part;};

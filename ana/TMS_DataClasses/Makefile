@@ -24,7 +24,7 @@ BUILD_FLAGS = -Wl,-R -Wl,.
 # Our lovely collection of libs
 LIB_OBJ = $(EDEP_LIBS) $(ROOT_LIBS)
 
-TMS_OBJ = TMS_Bar.o TMS_Hit.o TMS_TrueHit.o TMS_Event.o TMS_TrueParticle.o
+TMS_OBJ = TMS_Bar.o TMS_Hit.o TMS_TrueHit.o TMS_Event.o TMS_TrueParticle.o TMS_EventViewer.o
 
 %.o:%.cpp
 	$(CXX) -c $(CXXFLAGS) $<

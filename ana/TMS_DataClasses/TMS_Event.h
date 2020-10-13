@@ -4,6 +4,7 @@
 #include <string>
 #include <iostream>
 
+
 // Include the constants
 #include "TMS_Constants.h"
 #include "TMS_Hit.h"
@@ -33,6 +34,10 @@ class TMS_Event {
       return (TMS_Hits.size() == 0 ? true : false);
     }
 
+    int GetEventNumber() { return EventNumber; };
+    
+    // Include some truth metadata, like process, energy, lepton momentum?
+
   private:
     // Hits
     std::vector<TMS_Hit> TMS_Hits;
@@ -43,6 +48,8 @@ class TMS_Event {
 
     // Spill number (can have many events in a spill)?
     //int SpillNumber;
+ 
+    static int EventNumber;
 };
 
 #endif

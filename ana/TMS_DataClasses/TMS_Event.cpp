@@ -1,5 +1,8 @@
 #include "TMS_Event.h"
 
+// Initialise the event counter to 0
+int TMS_Event::EventNumber = 0;
+
 // Start the relatively tedious process of converting into TMS products!
 TMS_Event::TMS_Event(TG4Event &event) {
 
@@ -54,8 +57,9 @@ TMS_Event::TMS_Event(TG4Event &event) {
         TMS_Hits.push_back(hit);
       }
     }
-
   }
+
+  EventNumber++;
 }
 
 void TMS_Event::Print() {
