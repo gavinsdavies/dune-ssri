@@ -55,17 +55,18 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
     events->GetEntry(i);
     gRoo->GetEntry(i);
 
-    if (i > 50) break;
+    if (i > 100) break;
     if (i % (N_entries/10) == 0) {
       std::cout << "Processed " << i << "/" << N_entries << " (" << double(i)*100./N_entries << "%)" << std::endl;
     }
 
     // Make a TMS event
     TMS_Event tms_event = TMS_Event(*event);
+    // Dump information
+    //tms_event.Print();
+
     // View it
     TMS_EventViewer::GetViewer().Draw(tms_event);
-    //tms_event.Print();
-    //tms_event.Draw();
 
   } // End loop over all the events
 
