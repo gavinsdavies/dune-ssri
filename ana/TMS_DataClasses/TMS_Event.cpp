@@ -12,9 +12,10 @@ TMS_Event::TMS_Event(TG4Event &event) {
     TG4PrimaryVertex vtx = *it;
     // Get the particle trajectories
     std::vector<TG4PrimaryParticle> particles = vtx.Particles;
+
     // Loop over the particles in the vertex
     for (TG4PrimaryVertex::PrimaryParticles::iterator jt = particles.begin(); jt != particles.end(); ++jt) {
-      TG4PrimaryParticle particle = *jt;
+      const TG4PrimaryParticle particle = *jt;
       TMS_TrueParticle truepart = TMS_TrueParticle(particle);
       TMS_TrueParticles.push_back(truepart);
     }
@@ -56,3 +57,29 @@ TMS_Event::TMS_Event(TG4Event &event) {
 
   }
 }
+
+void TMS_Event::Print() {
+  std::cout << std::endl;
+  std::cout << "*** " << std::endl;
+  std::cout << "Printing TMS_Event class from "  << __FILE__ << std::endl;
+  std::cout << "  Using geometry: " << TMS_Geom::GetInstance().GetGeometry()->GetName() << ", " << TMS_Geom::GetInstance().GetGeometry()->GetTitle() << std::endl;
+  std::cout << "  N Truth particles: " << TMS_TrueParticles.size() << std::endl;
+  std::cout << "  N Hits: " << TMS_Hits.size() << std::endl;
+  std::cout << "  IsEmpty: " << IsEmpty() << std::endl;
+
+  int PartCount = 0;
+  std::cout << "Printing particle stack: " << std::endl;
+  for (std::vector<TMS_TrueParticle>::iterator it = TMS_TrueParticles.begin(); it != TMS_TrueParticles.end(); ++it, ++PartCount) {
+    std::cout << "Particle " << PartCount << std::endl;
+    (*it).Print();
+  }
+
+  int HitCount = 0;
+  std::cout << "Printing hit stack: " << std::endl;
+  for (std::vector<TMS_Hit>::iterator it = TMS_Hits.begin(); it != TMS_Hits.end(); ++it, ++HitCount) {
+    std::cout << "Hit "  << HitCount << std::endl;
+    (*it).Print();
+  }
+
+}
+

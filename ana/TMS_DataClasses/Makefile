@@ -12,8 +12,14 @@ EDEP_INC = -I$(EDEP_SIM)/include
 CXXFLAGS = -Wall -Og -g -fPIC -Werror
 CXXFLAGS += $(ROOT_INC) $(EDEP_INC)
 
+# Replace and create
+ARFLAGS = rc
+
 # Get the ROOT CXX flags in the shared lib
-SO_FLAGS= -shared $(ROOT_INC)
+SO_FLAGS = -shared $(ROOT_INC)
+
+# Include this directory when looking for libs
+BUILD_FLAGS = -Wl,-R -Wl,.
 
 # Our lovely collection of libs
 LIB_OBJ = $(EDEP_LIBS) $(ROOT_LIBS)
@@ -28,16 +34,15 @@ all: libTMS_Prod ConvertToTMSTree.exe
 libTMS_Prod: libTMS_Prod.a libTMS_Prod.so
 
 ConvertToTMSTree.exe: ConvertToTMSTree.cpp libTMS_Prod
-	$(CXX) $(CXXFLAGS) -o ConvertToTMSTree.exe ConvertToTMSTree.cpp -L ./ -lTMS_Prod $(LIB_OBJ)
+	$(CXX) $(CXXFLAGS) -o ConvertToTMSTree.exe ConvertToTMSTree.cpp -L . -lTMS_Prod $(LIB_OBJ) -Wl,-R -Wl,.
 
-# Make the archive
+# Make the archive or static lib
 libTMS_Prod.a: $(TMS_OBJ)
 	$(AR) $(ARFLAGS) $@ $^
 
 # Make the shared object
 libTMS_Prod.so: libTMS_Prod.a $(TMS_OBJ)
 	$(LD_SHARED) $(SO_FLAGS) $^ -o $@ $(LIB_OBJ)
-
 
 clean:
 	rm -f lib* *.o

@@ -3,6 +3,8 @@
 
 // Include the constants
 #include "TMS_Constants.h"
+// To get the geometry
+#include "TMS_Geom.h"
 
 #include "EDepSim/TG4HitSegment.h"
 
@@ -17,6 +19,7 @@ class TMS_Bar {
 
     // Enum for the x, y, U, V bar orientation
     enum BarType { kXBar, kYBar, kUBar, kVBar, kError };
+    std::string BarType_ToString(BarType bar);
 
     // Getter functions
     int GetBarNumber() { return BarNumber; };
@@ -28,6 +31,10 @@ class TMS_Bar {
     double GetXw() { return xw; };
     double GetYw() { return yw; };
     double GetZw() { return zw; };
+
+    void Print();
+
+    int FindBar(double x, double y, double z);
 
   private:
     // Plane that the bar belongs in

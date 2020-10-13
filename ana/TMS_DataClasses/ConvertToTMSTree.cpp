@@ -23,6 +23,7 @@
 bool dumpSSRITree(std::string filename, std::string output_filename) {
   std::cout << "Got " << filename << ", writing to " << output_filename << std::endl;
 
+  // The input file
   TFile *input = new TFile(filename.c_str());
   // The EDepSim events
   TTree *events = (TTree*)input->Get("EDepSimEvents");
@@ -53,69 +54,7 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
     }
 
     TMS_Event tms_event = TMS_Event(*event);
-
-    /*
-    // Loop over the primary vertices
-    for (TG4PrimaryVertexContainer::iterator it = event->Primaries.begin(); it != event->Primaries.end(); ++it) {
-
-      // The vertex
-      TG4PrimaryVertex vtx = *it;
-
-      // Loop over the particles in the vertex
-      std::vector<TG4PrimaryParticle> particles = vtx.Particles;
-      for (TG4PrimaryVertex::PrimaryParticles::iterator jt = particles.begin(); jt != particles.end(); ++jt) {
-        TG4PrimaryParticle particle = *jt;
-      }
-
-      TG4Trajectory LepTraj = event->Trajectories[LepIndex];
-      // Loop over the points that the lepton trajectory left
-      std::vector<TG4TrajectoryPoint> LepPoints = LepTraj.Points;
-      for (TG4Trajectory::TrajectoryPoints::iterator jt = LepPoints.begin(); jt != LepPoints.end(); ++jt) {
-        TG4TrajectoryPoint pt = *jt;
-        TGeoNode *node = geom->FindNode(Point.X(), Point.Y(), Point.Z());
-        if (node == NULL) {
-          std::cerr << "Couldn't find node for this point" << std::endl;
-          continue;
-        }
-        std::string VolumeName = node->GetName();
-        bool active = false;
-      }
-
-      for (TG4HitSegmentDetectors::iterator jt = event->SegmentDetectors.begin(); jt != event->SegmentDetectors.end(); ++jt) {
-
-        // Get the name of the active detector
-        std::string DetString = (*jt).first;
-//
-        // Remember what this segment is in
-        bool ThisSegInLAr = false;
-        bool ThisSegInTMS = false;
-
-        if (DetString == "rmmsvol") {
-          ThisSegInTMS = true;
-        }
-
-        // The container for all of the segments
-        TG4HitSegmentContainer hitsegments = (*jt).second;
-
-        for (TG4HitSegmentContainer::iterator kt = hitsegments.begin(); kt != hitsegments.end(); ++kt) {
-          // The current segment
-          TG4HitSegment seg = (*kt);
-
-          // Loop over the contributors to this track segment
-          for (TG4HitSegment::Contributors::iterator ct = seg.Contrib.begin(); ct != seg.Contrib.end(); ++ct) {
-            int Contributor = *ct;
-            int Contributor = 0;
-             Get the trajectory that produced this hit
-            TG4Trajectory Trajectory = event->Trajectories[Contributor];
-            int ParentId = Trajectory.GetParentId();
-            int pdg = Trajectory.GetPDGCode();
-            int TrackId = Trajectory.GetTrackId();
-          }
-        }
-
-      } 
-    } // End loop over the vertices in the event
-    */
+    tms_event.Print();
   } // End loop over all the events
 
   Timer.Stop();

@@ -22,14 +22,12 @@
 class TMS_Hit {
 
   public:
+    void Print();
     // The constructor for the TMS hit
     TMS_Hit(double x, double y, double z, double t, double E);
     TMS_Hit(TG4HitSegment &edep_seg);
     TMS_Hit();
     //~TMS_Hit();
-
-    // Helper function to find the bar of a current position
-    TMS_Bar FindBar(double x, double y, double z);
 
     TMS_Bar GetBar() { return Bar; };
     void SetBar(TMS_Bar bar) { Bar = bar; };
@@ -41,6 +39,7 @@ class TMS_Hit {
     void SetTrueHit(TMS_TrueHit hit) {TrueHit = hit;};
 
     void SetE(double E) {EnergyDeposit = E;};
+    void SetT(double t) {Time = t;};
 
     double GetE() {return EnergyDeposit;};
 
@@ -53,6 +52,8 @@ class TMS_Hit {
     TMS_Bar Bar;
     // The energy deposited
     double EnergyDeposit;
+    // The timing of the hit
+    double Time;
 };
 
 #endif

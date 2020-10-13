@@ -7,13 +7,15 @@
 
 #include "TLorentzVector.h"
 
+#include <iostream>
+
 class TMS_TrueParticle {
   public:
 
     TMS_TrueParticle();
     // Construct directly from edep-sim
-    TMS_TrueParticle(TG4PrimaryParticle &particle);
-    TMS_TrueParticle(TG4HitSegment &hit);
+    TMS_TrueParticle(const TG4PrimaryParticle &particle);
+    //TMS_TrueParticle(const TG4HitSegment &hit);
     //~TMS_TrueParticle();
 
     // Give four vector setters
@@ -25,6 +27,7 @@ class TMS_TrueParticle {
 
     void SetParent(int num) { Parent = num; };
     void SetPDG(int num) { PDG = num; };
+    void Print();
 
   private:
     int PDG;
