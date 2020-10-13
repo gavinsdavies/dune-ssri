@@ -72,7 +72,6 @@ bool TMS_Bar::FindModules(double xval, double yval, double zval) {
 
   // The position of the hit bar
   double Translation[] = {0., 0., 0.};
-  for (int i = 0; i < 3; ++i) Translation[i] = geom->GetCurrentMatrix()->GetTranslation()[i];
 
   // cd up in the geometry to find the right name
   while (NodeName.find(TMS_Const::TMS_TopLayerName) == std::string::npos) {
@@ -82,9 +81,26 @@ bool TMS_Bar::FindModules(double xval, double yval, double zval) {
       PlaneNumber = geom->GetCurrentNode()->GetNumber();
     }
 
-    // This is the furthest down hit we have
+    // This is the furthest down hit we have: scintillator bar
     else if (NodeName.find(TMS_Const::TMS_ScintLayerName) != std::string::npos) {
       BarNumber = geom->GetCurrentNode()->GetNumber();
+
+      // Get the width
+      TGeoBBox *box = dynamic_cast<TGeoBBox*>(geom->GetCurrentVolume()->GetShape());
+      // ROOT saves half of the width of a shape
+      xw = 2*box->GetDX();
+      yw = 2*box->GetDY();
+      zw = 2*box->GetDZ();
+
+      // Do a sanity check (CHEATING!)
+      // Know the bars are 1cm in z and 4cm in x
+      if (zw != 10 || xw != 40) {
+        std::cerr << "width of " << NodeName << " not as expected!" << std::endl;
+        std::cerr << "xwidth: " << xw << std::endl;
+        std::cerr << "zwidth: " << zw << std::endl;
+      }
+
+      for (int i = 0; i < 3; ++i) Translation[i] = geom->GetCurrentMatrix()->GetTranslation()[i];
     }
 
     else if (NodeName.find(TMS_Const::TMS_ModuleName) != std::string::npos) {

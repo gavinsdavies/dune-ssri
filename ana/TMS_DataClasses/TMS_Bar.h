@@ -8,7 +8,7 @@
 
 #include "EDepSim/TG4HitSegment.h"
 
-//#include "TGeoBBox.h"
+#include "TGeoBBox.h"
 
 class TMS_Bar {
   public:
@@ -47,6 +47,7 @@ class TMS_Bar {
     int BarNumber;
     // The global bar number (0-100) 
     int GlobalBarNumber;
+    // All in mm units!
     // The bar start positions
     double x;
     double y;
