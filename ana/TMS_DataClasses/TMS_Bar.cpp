@@ -62,45 +62,49 @@ TMS_Bar::TMS_Bar(TG4HitSegment &edep_seg) {
 
 // Find which bar a given x,y,z position corresponds to
 // Maybe this function should be moved to the singleton instead
-bool TMS_Bar::FindModules(double x, double y, double z) {
+bool TMS_Bar::FindModules(double xval, double yval, double zval) {
 
   // Use the ROOT geometry to figure it out if available
   TGeoManager *geom = TMS_Geom::GetInstance().GetGeometry();
 
   // Find which node this position is equivalent too
-  geom->FindNode(x,y,z);
-  TGeoNavigator *nav = geom->GetCurrentNavigator();
-  std::string NodeName = std::string(nav->GetCurrentNode()->GetName());
+  std::string NodeName = std::string(geom->FindNode(xval,yval,zval)->GetName());
+
+  // The position of the hit bar
+  double Translation[] = {0., 0., 0.};
+  for (int i = 0; i < 3; ++i) Translation[i] = geom->GetCurrentMatrix()->GetTranslation()[i];
+
   // cd up in the geometry to find the right name
   while (NodeName.find(TMS_Const::TMS_TopLayerName) == std::string::npos) {
 
     // We've found the plane number
     if (NodeName.find(TMS_Const::TMS_ModuleLayerName) != std::string::npos) {
-      PlaneNumber = nav->GetCurrentNode()->GetNumber();
-      std::cout << "Setting plane number: " << std::endl;
-      std::cout << NodeName << " " << PlaneNumber << std::endl;
+      PlaneNumber = geom->GetCurrentNode()->GetNumber();
     }
 
+    // This is the furthest down hit we have
     else if (NodeName.find(TMS_Const::TMS_ScintLayerName) != std::string::npos) {
-      BarNumber = nav->GetCurrentNode()->GetNumber();
-      std::cout << "Setting bar number: " << std::endl;
-      std::cout << NodeName << " " << BarNumber << std::endl;
+      BarNumber = geom->GetCurrentNode()->GetNumber();
     }
 
     else if (NodeName.find(TMS_Const::TMS_ModuleName) != std::string::npos) {
-      GlobalBarNumber = nav->GetCurrentNode()->GetNumber();
-      std::cout << "Setting module number: " << std::endl;
-      std::cout << NodeName << " " << GlobalBarNumber << std::endl;
+      GlobalBarNumber = geom->GetCurrentNode()->GetNumber();
     }
 
-    nav->CdUp();
-    NodeName = std::string(nav->GetCurrentNode()->GetName());
+    geom->CdUp();
+    NodeName = std::string(geom->GetCurrentNode()->GetName());
   }
+
+  // Update the hit value to be the bar
+  x = Translation[0];
+  // y-bar information doesn't seem to work?
+  //y = Translation[1];
+  z = Translation[2];
 
   // If we've reached the world volume we don't have a scintillator hit -> return some mad bad value
   if (BarNumber == -1 || PlaneNumber == -1 || GlobalBarNumber == -1) {
     // Since the bar has already been created as a "error" in the above empty constructor we can just return
-    std::cout << "Bar number or plane number not found in Geometry" << std::endl;
+    //std::cout << "Bar number or plane number not found in Geometry" << std::endl;
     return false;
   }
 
@@ -131,15 +135,6 @@ int TMS_Bar::FindBar(double x, double y, double z) {
     std::cout << "Bar position not found in TMS_Bar::FindBar!" << std::endl;
     return -1;
   }
-
-  // Get the node
-  //TGeoNode *node = nav->GetCurrentNode();
-  // Get the volume
-  //TGeoVolume *vol = node->GetVolume();
-  //TGeoShape *shape = vol->GetShape();
-
-  // Assume we now have the bar information in the navigator
-  //x = ;
 
   int Number = nav->GetCurrentNode()->GetNumber();
 
