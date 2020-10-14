@@ -24,9 +24,9 @@ class TMS_Hit {
   public:
     void Print();
     // The constructor for the TMS hit
-    TMS_Hit(double x, double y, double z, double t, double E);
     TMS_Hit(TG4HitSegment &edep_seg);
-    TMS_Hit();
+    //TMS_Hit(double x, double y, double z, double t, double E);
+    //TMS_Hit();
     //~TMS_Hit();
 
     const TMS_Bar &GetBar() { return Bar; };
@@ -49,7 +49,7 @@ class TMS_Hit {
     double GetT() {return Time;};
 
   private:
-    // The true hit (x,y,z,t)
+    // The true hit (x,y,z,t) --- does not quantise hit into bars
     TMS_TrueHit TrueHit;
     // The true particle that created this hit
     TMS_TrueParticle TrueParticle;

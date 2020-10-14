@@ -1,5 +1,5 @@
 #include "TMS_Bar.h"
-
+/*
 TMS_Bar::TMS_Bar() {
   // Default to an error
   BarOrient = kError;
@@ -28,6 +28,7 @@ TMS_Bar::TMS_Bar(double xpos, double ypos, double zpos, int BarNo) {
   BarNumber = BarNo;
   //PlaneNumber = FindBar(x,y,z);
 }
+*/
 
 // Construct a bar from a hit
 TMS_Bar::TMS_Bar(TG4HitSegment &edep_seg) {
@@ -57,7 +58,6 @@ TMS_Bar::TMS_Bar(TG4HitSegment &edep_seg) {
   // Now set the width and orientation of the bar
   if (PlaneNumber % 2 == 0) BarOrient = kXBar;
   else BarOrient = kYBar;
-
 }
 
 // Find which bar a given x,y,z position corresponds to

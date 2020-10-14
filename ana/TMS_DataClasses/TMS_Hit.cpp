@@ -1,6 +1,7 @@
 #include "TMS_Hit.h"
 
 // The constructor for a hit in the TMS, from a edep-sim hit
+/*
 TMS_Hit::TMS_Hit(double x, double y, double z, double t, double E) {
 
   // Save the true hit
@@ -17,22 +18,22 @@ TMS_Hit::TMS_Hit(double x, double y, double z, double t, double E) {
 
   SetT(t);
 }
+*/
 
-TMS_Hit::TMS_Hit(TG4HitSegment &edep_seg) {
-  // Save the true hit
-  //TrueHit = TMS_TrueHit(edep_seg);
-
-  // Save the energy deposit
-  EnergyDeposit = edep_seg.GetEnergyDeposit();
-
+// Set the bar and truehit
+TMS_Hit::TMS_Hit(TG4HitSegment &edep_seg) : 
+  TrueHit(edep_seg), 
+  Bar(edep_seg),
+  EnergyDeposit(edep_seg.GetEnergyDeposit()),
   // Define time as the average between start and stop of hit
-  Time = (edep_seg.GetStop().T()+edep_seg.GetStart().T())/2;
+  Time((edep_seg.GetStop().T()+edep_seg.GetStart().T())/2)
+{
+
+  TrueHit.Print();
 
   // The true particle
   //TrueParticle = TMS_TrueParticle(edep_seg);
 
-  // Get the bar
-  Bar = TMS_Bar(edep_seg);
 }
 
 void TMS_Hit::Print() {

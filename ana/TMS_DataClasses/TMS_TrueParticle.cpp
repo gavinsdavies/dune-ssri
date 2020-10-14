@@ -1,10 +1,10 @@
 #include "TMS_TrueParticle.h"
 
-TMS_TrueParticle::TMS_TrueParticle(const TG4PrimaryParticle &particle) {
-  FourVector = particle.GetMomentum();
-  PDG = particle.GetPDGCode();
-  TrackId = particle.GetTrackId();
-  Parent = -999;
+TMS_TrueParticle::TMS_TrueParticle(const TG4PrimaryParticle &particle) :
+  PDG(particle.GetPDGCode()),
+  FourVector(particle.GetMomentum()),
+  Parent(-999),
+  TrackId(particle.GetTrackId()) {
 }
 
 TMS_TrueParticle::TMS_TrueParticle() :
