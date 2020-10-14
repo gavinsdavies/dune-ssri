@@ -1,6 +1,9 @@
 #include "TMS_EventViewer.h"
 
 TMS_EventViewer::TMS_EventViewer() {
+
+  nDraws = 0;
+
   gStyle->SetOptStat(0);
   gStyle->SetNumberContours(255);
 
@@ -18,6 +21,8 @@ TMS_EventViewer::TMS_EventViewer() {
   // The 2D views
   xz_view = new TH2D("TMS_Viewer_xz", "TMS viewer xz;z (cm); x (cm); Energy Deposit (MeV)", nbinsz, zmin, zmax, nbinsx, xmin, xmax);
   yz_view = new TH2D("TMS_Viewer_yz", "TMS viewer yz;z (cm); y (cm); Energy Deposit (MeV)", nbinsz, zmin, zmax, nbinsy, ymin, ymax);
+  yz_view->GetZaxis()->SetTitleOffset(yz_view->GetZaxis()->GetTitleOffset()*1.5);
+  xz_view->GetZaxis()->SetTitleOffset(xz_view->GetZaxis()->GetTitleOffset()*1.5);
 
   xz_view->SetMinimum(-0.01);
   yz_view->SetMinimum(-0.01);
@@ -27,10 +32,10 @@ TMS_EventViewer::TMS_EventViewer() {
   // The canvas
   Canvas = new TCanvas("TMS_EventViewer", "TMS_EventViewer", 1024, 1024);
   Canvas->Divide(2);
-  Canvas->cd(1)->SetLeftMargin(Canvas->GetLeftMargin()*1.3);
-  Canvas->cd(2)->SetLeftMargin(Canvas->GetLeftMargin()*1.3);
-  Canvas->cd(1)->SetRightMargin(Canvas->GetRightMargin()*1.2);
-  Canvas->cd(2)->SetRightMargin(Canvas->GetRightMargin()*1.2);
+  Canvas->cd(1)->SetLeftMargin(Canvas->GetLeftMargin()*1.2);
+  Canvas->cd(2)->SetLeftMargin(Canvas->GetLeftMargin()*1.2);
+  Canvas->cd(1)->SetRightMargin(Canvas->GetRightMargin()*1.5);
+  Canvas->cd(2)->SetRightMargin(Canvas->GetRightMargin()*1.5);
 
   // Full view from inspecting all hits
   xz_box_Full = new TBox(730, -348.5, 1415, 348.5);
@@ -71,6 +76,10 @@ TMS_EventViewer::TMS_EventViewer() {
   yz_Thin_Thick = new TLine(TMS_Const::TMS_Trans_Start, -234, TMS_Const::TMS_Trans_Start, 87);
   yz_Thin_Thick->SetLineColor(kGray);
   yz_Thin_Thick->SetLineStyle(kDashed);
+
+  // Open up the pdf
+  CanvasName = "TMS_EventViewer_Collection";
+  Canvas->Print(CanvasName+".pdf[");
 }
 
 // Draw the finished event
@@ -79,6 +88,10 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
   xz_view->Reset();
   yz_view->Reset();
 
+  int EventNumber = event.GetEventNumber();
+  xz_view->SetTitle(Form("TMS viewer xz, Event %i", EventNumber));
+  yz_view->SetTitle(Form("TMS viewer yz, Event %i", EventNumber));
+
   std::vector<TMS_Hit> TMS_Hits = event.GetHits();
 
   // Check that there are hits
@@ -86,7 +99,6 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
     //std::cerr << "Trying to draw an event that has no hits in the TMS, returning..." << std::endl;
     return;
   }
-
 
   // Loop over the hits and add them
   for (std::vector<TMS_Hit>::iterator it = TMS_Hits.begin(); it != TMS_Hits.end(); ++it) {
@@ -107,9 +119,6 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
     }
   }
 
-  int EventNumber = event.GetEventNumber();
-  TString Canvasname = Form("test_Event_%i", EventNumber);
-
   Canvas->cd(1); 
   xz_view->Draw("colz");
   xz_box_FV->Draw("same");
@@ -125,5 +134,8 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
   yz_box_Full->Draw("same");
   yz_Thin_Thick->Draw("same");
 
-  Canvas->Print(Canvasname+".pdf");
+  Canvas->Print(CanvasName+".pdf");
+
+  nDraws++;
 }
+

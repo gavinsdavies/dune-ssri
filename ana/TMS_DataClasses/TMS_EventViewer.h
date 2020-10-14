@@ -9,18 +9,29 @@
 
 class TMS_EventViewer {
   public:
-    static TMS_EventViewer GetViewer() {
+    static TMS_EventViewer &GetViewer() {
       static TMS_EventViewer Instance;
       return Instance;
     }
 
     void Draw(TMS_Event &event);
+
+    ~TMS_EventViewer() {
+      if (nDraws > 0) {
+        Canvas->Print(CanvasName+".pdf]");
+        std::cout << "TMS_EventViewer drew " << nDraws << " events to " << CanvasName+".pdf" << std::endl;
+      }
+    }
+
   private:
     TMS_EventViewer();
+    TMS_EventViewer(TMS_EventViewer const&) = delete;
+    void operator=(TMS_EventViewer const&) = delete;
 
     TH2D *xz_view;
     TH2D *yz_view;
     TCanvas *Canvas;
+    TString CanvasName;
 
     TBox *xz_box_FV;
     TBox *xz_box_Full;
@@ -34,4 +45,6 @@ class TMS_EventViewer {
 
     TLine *yz_Thin_Thick;
     TLine *xz_Thin_Thick;
+
+    int nDraws;
 };

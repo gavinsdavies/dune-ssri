@@ -41,8 +41,6 @@ class TMS_Geom {
       FileName = filename;
     }
 
-    TMS_Geom(TMS_Geom const &) = delete;
-    void operator=(TMS_Geom const &) = delete;
 
   private:
     // The empty constructor
@@ -50,6 +48,9 @@ class TMS_Geom {
       geom = NULL;
       FileName = "";
     };
+
+    TMS_Geom(TMS_Geom const &) = delete;
+    void operator=(TMS_Geom const &) = delete;
 
     // The actual geometry
     TGeoManager *geom;
