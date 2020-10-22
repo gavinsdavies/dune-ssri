@@ -57,7 +57,7 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
     events->GetEntry(i);
     gRoo->GetEntry(i);
 
-    if (i > 1000) break;
+    if (i > 100) break;
     if (i % (N_entries/10) == 0) {
       std::cout << "Processed " << i << "/" << N_entries << " (" << double(i)*100./N_entries << "%)" << std::endl;
     }

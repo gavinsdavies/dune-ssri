@@ -26,17 +26,32 @@ class TMS_Bar {
     std::string BarType_ToString(BarType bar);
 
     // Getter functions
-    int GetBarNumber() { return BarNumber; };
-    int GetPlaneNumber() { return PlaneNumber; };
-    int GetGlobalBarNumber() { return GlobalBarNumber; };
-    BarType GetBarType() { return BarOrient; };
-    double GetX() { return x; };
-    double GetY() { return y; };
-    double GetZ() { return z; };
+    int GetBarNumber() const { return BarNumber; };
+    int GetPlaneNumber() const { return PlaneNumber; };
+    int GetGlobalBarNumber() const { return GlobalBarNumber; };
 
-    double GetXw() { return xw; };
-    double GetYw() { return yw; };
-    double GetZw() { return zw; };
+    BarType GetBarType() const { return BarOrient; };
+
+    double GetX() const { return x; };
+    double GetY() const { return y; };
+    double GetZ() const { return z; };
+
+    // Get the dimension which is not z (i.e. x or y dependent on the bar
+    double GetNotZ() const { 
+      if (BarOrient == kXBar) return y;
+      else if (BarOrient == kYBar) return x;
+      return -9999999999;
+    }
+
+    double GetXw() const { return xw; };
+    double GetYw() const { return yw; };
+    double GetZw() const { return zw; };
+
+    double GetNotZw() const {
+      if (BarOrient == kXBar) return yw;
+      else if (BarOrient == kYBar) return xw;
+      return -9999999999;
+    }
 
     void Print();
 
@@ -48,14 +63,14 @@ class TMS_Bar {
     // can be both x and y views (depending on bar type)!
     bool Contains(double x, double z) {
 
-      //std::cout << "BarOrient: " << BarType_ToString(BarOrient) << std::endl;
-      //std::cout << "Getting (x,z)=(" << x << "," << z << ")" << std::endl;
-
+      // Get the maxium and minimum of the bar
       double zmin = GetZ()-GetZw()/2;
       double zmax = GetZ()+GetZw()/2;
-      //std::cout << "zmin,zmax: " << zmin << "," << zmax << std::endl;
+
+      // Check the 2D point is inside in z
       if (z > zmax || z < zmin) return false;
 
+      // Now check 2D point is inside in not z
       double xmin = -9999999999999;
       double xmax = 9999999999999;
       if (BarOrient == kXBar) {
@@ -65,7 +80,6 @@ class TMS_Bar {
         xmin = GetX()-GetXw()/2;
         xmax = GetX()+GetXw()/2;
       }
-      //std::cout << "xmin,xmax: " << xmin << "," << xmax << std::endl;
 
       if (x > xmax || x < xmin) return false;
 

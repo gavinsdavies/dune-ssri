@@ -21,11 +21,11 @@ class TMS_Event {
     //~TMS_Event();
 
     // The getters once the class is completed
-    const std::vector<TMS_Hit> &GetHits() {return TMS_Hits;};
+    const std::vector<TMS_Hit> &GetHits() const {return TMS_Hits;};
     // Reconstructed tracks
     //std::vector<TMS_Track> GetTracks() {return TMS_Tracks;};
     // The true particles
-    const std::vector<TMS_TrueParticle> &GetParticles() { return TMS_TrueParticles; };
+    const std::vector<TMS_TrueParticle> &GetParticles() const { return TMS_TrueParticles; };
 
     void Print();
 
