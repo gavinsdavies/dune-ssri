@@ -50,14 +50,22 @@ TMS_Bar::TMS_Bar(TG4HitSegment &edep_seg) {
   y = avgy;
   z = avgz;
 
+  /*
+  std::cout << "Start: " << std::endl;
+  edep_seg.GetStart().Print();
+  std::cout << "Stop: " << std::endl;
+  edep_seg.GetStop().Print();
+  std::cout << "Before: " << x << ", " << y << ", " << z << std::endl;
+  edep_seg.GetStart().Print();
+  x = edep_seg.GetStart().X();
+  y = edep_seg.GetStart().Y();
+  z = edep_seg.GetStart().Z();
+  */
+
   // Find the bar in the geometry
-  FindModules(avgx, avgy, avgz);
-
-  // Then correct the position of the bar?
-
-  // Now set the width and orientation of the bar
-  if (PlaneNumber % 2 == 0) BarOrient = kXBar;
-  else BarOrient = kYBar;
+  //FindModules(avgx, avgy, avgz);
+  FindModules(x, y, z);
+  //std::cout << "After: " << x << ", " << y << ", " << z << std::endl;
 }
 
 // Find which bar a given x,y,z position corresponds to
@@ -111,7 +119,7 @@ bool TMS_Bar::FindModules(double xval, double yval, double zval) {
     NodeName = std::string(geom->GetCurrentNode()->GetName());
   }
 
-  // Update the hit value to be the bar
+  // Update the hit value to be the bar, not the exact hit position
   x = Translation[0];
   // y-bar information doesn't seem to work?
   //y = Translation[1];
@@ -122,6 +130,29 @@ bool TMS_Bar::FindModules(double xval, double yval, double zval) {
     // Since the bar has already been created as a "error" in the above empty constructor we can just return
     //std::cout << "Bar number or plane number not found in Geometry" << std::endl;
     return false;
+  }
+
+  // Set the width and orientation of the bar
+  if (PlaneNumber % 2 == 0) BarOrient = kXBar;
+  else BarOrient = kYBar;
+
+  // If this is a y-bar, remove the y coordinate
+  if (BarOrient == kXBar) {
+    x = -99999000;
+    // Flip the widths
+    //std::cout << "flipping width "  << yw << " to be " << xw << std::endl;
+    double tempyw = yw;
+    yw = xw;
+    xw = tempyw; 
+    //std::cout << "flipped width "  << yw << " to be " << xw << std::endl;
+  } else if (BarOrient == kYBar) {
+    //std::cout << "for ybar: " << yw << " " << xw << std::endl;
+    y = -99999000;
+    // Don't need to flip the widths because they're already correct (yw = large, xw = 4cm)
+  } else {
+    x = -99999000;
+    y = -99999000;
+    z = -99999000;
   }
 
   return true;

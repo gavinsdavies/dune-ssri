@@ -29,7 +29,6 @@ TMS_Hit::TMS_Hit(TG4HitSegment &edep_seg) :
   Time((edep_seg.GetStop().T()+edep_seg.GetStart().T())/2)
 {
 
-  TrueHit.Print();
 
   // The true particle
   //TrueParticle = TMS_TrueParticle(edep_seg);
@@ -42,4 +41,7 @@ void TMS_Hit::Print() {
   std::cout << "Time: " << Time << std::endl;
   std::cout << "Bar: " << std::endl;
   Bar.Print();
+
+  std::cout << "TrueHit: " << std::endl;
+  TrueHit.Print();
 }

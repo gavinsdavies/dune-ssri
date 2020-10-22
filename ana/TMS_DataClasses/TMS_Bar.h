@@ -27,6 +27,8 @@ class TMS_Bar {
 
     // Getter functions
     int GetBarNumber() { return BarNumber; };
+    int GetPlaneNumber() { return PlaneNumber; };
+    int GetGlobalBarNumber() { return GlobalBarNumber; };
     BarType GetBarType() { return BarOrient; };
     double GetX() { return x; };
     double GetY() { return y; };
@@ -39,8 +41,36 @@ class TMS_Bar {
     void Print();
 
     int FindBar(double x, double y, double z);
-
     bool FindModules(double x, double y, double z);
+
+    // Find if a 2D point is inside the bar
+    // x here denotes the other view than z
+    // can be both x and y views (depending on bar type)!
+    bool Contains(double x, double z) {
+
+      //std::cout << "BarOrient: " << BarType_ToString(BarOrient) << std::endl;
+      //std::cout << "Getting (x,z)=(" << x << "," << z << ")" << std::endl;
+
+      double zmin = GetZ()-GetZw()/2;
+      double zmax = GetZ()+GetZw()/2;
+      //std::cout << "zmin,zmax: " << zmin << "," << zmax << std::endl;
+      if (z > zmax || z < zmin) return false;
+
+      double xmin = -9999999999999;
+      double xmax = 9999999999999;
+      if (BarOrient == kXBar) {
+        xmin = GetY()-GetYw()/2;
+        xmax = GetY()+GetYw()/2;
+      } else if (BarOrient == kYBar) {
+        xmin = GetX()-GetXw()/2;
+        xmax = GetX()+GetXw()/2;
+      }
+      //std::cout << "xmin,xmax: " << xmin << "," << xmax << std::endl;
+
+      if (x > xmax || x < xmin) return false;
+
+      return true;
+    }
 
   private:
     // Plane that the bar belongs in

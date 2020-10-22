@@ -6,6 +6,7 @@
 #include "TLine.h"
 
 #include "TMS_Event.h"
+#include "TMS_Reco.h"
 
 class TMS_EventViewer {
   public:
@@ -47,4 +48,7 @@ class TMS_EventViewer {
     TLine *xz_Thin_Thick;
 
     int nDraws;
+
+    // Include track finding in draw
+    bool DrawTrackFinding;
 };

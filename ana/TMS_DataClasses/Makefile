@@ -24,7 +24,7 @@ BUILD_FLAGS = -Wl,-R -Wl,.
 # Our lovely collection of libs
 LIB_OBJ = $(EDEP_LIBS) $(ROOT_LIBS)
 
-TMS_OBJ = TMS_Bar.o TMS_Hit.o TMS_TrueHit.o TMS_Event.o TMS_TrueParticle.o TMS_EventViewer.o
+TMS_OBJ = TMS_Bar.o TMS_Hit.o TMS_TrueHit.o TMS_Event.o TMS_TrueParticle.o TMS_EventViewer.o TMS_Reco.cpp
 
 %.o:%.cpp
 	$(CXX) -c $(CXXFLAGS) $<
@@ -42,7 +42,7 @@ libTMS_Prod.a: $(TMS_OBJ)
 
 # Make the shared object
 libTMS_Prod.so: libTMS_Prod.a $(TMS_OBJ)
-	$(LD_SHARED) $(SO_FLAGS) $^ -o $@ $(LIB_OBJ)
+	$(LD_SHARED) $(SO_FLAGS) $(CXXFLAGS) $^ -o $@ $(LIB_OBJ)
 
 clean:
 	rm -f lib* *.o

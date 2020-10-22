@@ -20,7 +20,7 @@ TMS_Event::TMS_Event(TG4Event &event) {
     for (TG4PrimaryVertex::PrimaryParticles::iterator jt = particles.begin(); jt != particles.end(); ++jt) {
       const TG4PrimaryParticle particle = *jt;
       TMS_TrueParticle truepart = TMS_TrueParticle(particle);
-      TMS_TrueParticles.push_back(truepart);
+      TMS_TrueParticles.emplace_back(truepart);
     }
 
     // Do we need the tracjectory points?
@@ -54,7 +54,7 @@ TMS_Event::TMS_Event(TG4Event &event) {
       for (TG4HitSegmentContainer::iterator kt = tms_hits.begin(); kt != tms_hits.end(); ++kt) {
         TG4HitSegment edep_hit = *kt;
         TMS_Hit hit = TMS_Hit(edep_hit);
-        TMS_Hits.push_back(hit);
+        TMS_Hits.emplace_back(hit);
       }
     }
   }

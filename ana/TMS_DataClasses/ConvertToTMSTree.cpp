@@ -16,6 +16,8 @@
 #include "TMS_Event.h"
 // Event viewer singleton
 #include "TMS_EventViewer.h"
+// Reconstructor
+#include "TMS_Reco.h"
 
 /*
 #include "TMS_Constants.h"
@@ -55,7 +57,7 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
     events->GetEntry(i);
     gRoo->GetEntry(i);
 
-    if (i > 100) break;
+    if (i > 1000) break;
     if (i % (N_entries/10) == 0) {
       std::cout << "Processed " << i << "/" << N_entries << " (" << double(i)*100./N_entries << "%)" << std::endl;
     }
@@ -65,10 +67,13 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
     // Dump information
     //tms_event.Print();
 
+    // Try finding some tracks
+    TMS_TrackFinder::GetFinder().FindTracks(tms_event);
+
     // View it
     TMS_EventViewer::GetViewer().Draw(tms_event);
-
   } // End loop over all the events
+
 
   Timer.Stop();
   std::cout << "Event loop took " << Timer.RealTime() << "s for " << N_entries << " entries (" << Timer.RealTime()/N_entries << " s/entries)" << std::endl;
