@@ -1,6 +1,6 @@
-# dune-ssri
-DUNE Sign-Selecting Range Indicator simulation studies
-
+# dune-tms
+DUNE Near Detector Temporary Muon Spectrometer
+Former DUNE NDSign-Selecting Range Indicator
 Directory structure:
 - setup
 setup scripts
