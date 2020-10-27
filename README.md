@@ -1,6 +1,6 @@
 # dune-tms
 DUNE Near Detector Temporary Muon Spectrometer
-Former DUNE NDSign-Selecting Range Indicator
+Former DUNE ND Sign-Selecting Range Indicator
 Directory structure:
 - setup
 setup scripts
