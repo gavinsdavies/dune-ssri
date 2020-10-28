@@ -24,9 +24,13 @@ class TMS_TrackFinder {
 
     void FindTracks(TMS_Event &event);
     const std::vector<TMS_Hit> & GetCandidates() { return Candidates; };
+    const std::vector<std::vector<TMS_Hit> >& GetTotalCandidates() { return TotalCandidates; };
 
     TF1* GetHoughLine_zy() { return HoughLine_zy; };
     TF1* GetHoughLine_zx() { return HoughLine_zx; };
+
+    std::vector<TF1*> GetHoughLines_zy() { return HoughLines_zy; };
+    std::vector<TF1*> GetHoughLines_zx() { return HoughLines_zx; };
 
     int **GetAccumulator_zy() { return Accumulator_zy; };
     int **GetAccumulator_zx() { return Accumulator_zx; };
@@ -44,10 +48,16 @@ class TMS_TrackFinder {
     int FindBin(double Rho);
     // The candidates for each particle
     std::vector<TMS_Hit> Candidates;
+    std::vector<TMS_Hit> RawHits;
+
+    std::vector<std::vector<TMS_Hit> > TotalCandidates;
+    std::vector<TF1*> HoughLines_zy;
+    std::vector<TF1*> HoughLines_zx;
 
     void Accumulate(double xvalue, double yvalue, double zvalue, TMS_Bar::BarType Type);
 
     // Number of theta bins
+    /*
     int nTheta;
     int nRho;
     double RhoMin;
@@ -56,13 +66,29 @@ class TMS_TrackFinder {
     double ThetaMax;
     double ThetaWidth;
     double RhoWidth;
-    double zMaxHough;
+    */
+
+    int nIntercept;
+    int nSlope;
+    double InterceptMin;
+    double InterceptMax;
+    double SlopeMin;
+    double SlopeMax;
+    double InterceptWidth;
+    double SlopeWidth;
 
     int **Accumulator_zy;
     int **Accumulator_zx;
 
     TF1 *HoughLine_zy;
     TF1 *HoughLine_zx;
+    //std::vector<TF1*> HoughLines_zy;
+    //std::vector<TF1*> HoughLines_zx;
+
+    double zMaxHough;
+
+    unsigned int nMinHits;
+    unsigned int nMaxMerges;
 };
 
 #endif

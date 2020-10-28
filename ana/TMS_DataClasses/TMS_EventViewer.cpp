@@ -149,28 +149,39 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
   }
 
   // Loop over the reconstructed tracks
-  std::vector<TMS_Hit> Candidates = TMS_TrackFinder::GetFinder().GetCandidates();
-  for (std::vector<TMS_Hit>::iterator it = Candidates.begin(); it != Candidates.end(); ++it) {
+  //std::vector<TMS_Hit> Candidates = TMS_TrackFinder::GetFinder().GetCandidates();
+  std::vector<std::vector<TMS_Hit> > TotalCandidates = TMS_TrackFinder::GetFinder().GetTotalCandidates();
 
-    TMS_Bar bar = (*it).GetBar();  
-    double x = bar.GetX();
-    double y = bar.GetY();
-    double z = bar.GetZ();
-    int BarType = bar.GetBarType();
-    double e = 100;
+  int iter = 0;
+  // Loop over each total candidates
+  for (std::vector<std::vector<TMS_Hit> >::iterator it = TotalCandidates.begin(); it != TotalCandidates.end(); ++it) {
+    std::vector<TMS_Hit> Candidates = (*it);
 
-    // Bar along y (no x info)
-    if (BarType == TMS_Bar::BarType::kYBar) {
-      xz_view->Fill(z, x, e);
+    double e = 3;
+    if (iter == 0) e = 100;
+    else e = 2;
+    for (std::vector<TMS_Hit>::iterator jt = Candidates.begin(); jt != Candidates.end(); ++jt) {
+
+      TMS_Bar bar = (*jt).GetBar();  
+      double x = bar.GetX();
+      double y = bar.GetY();
+      double z = bar.GetZ();
+      int BarType = bar.GetBarType();
+
+      // Bar along y (no x info)
+      if (BarType == TMS_Bar::BarType::kYBar) {
+        xz_view->Fill(z, x, e);
+      }
+      // Bar along x (no y info)
+      else if (BarType == TMS_Bar::BarType::kXBar) {
+        yz_view->Fill(z, y, e);
+      }
+
     }
-    // Bar along x (no y info)
-    else if (BarType == TMS_Bar::BarType::kXBar) {
-      yz_view->Fill(z, y, e);
-    }
-
+    iter++;
   }
 
-  gStyle->SetPalette(57);
+  gStyle->SetPalette(kBird);
   Canvas->cd(1); 
   xz_view->Draw("colz");
   xz_box_FV->Draw("same");
@@ -179,14 +190,16 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
   xz_dead_center->Draw("same");
   xz_dead_bottom->Draw("same");
   xz_Thin_Thick->Draw("same");
-  TMS_TrackFinder::GetFinder().GetHoughLine_zx()->Draw("same");
+  std::vector<TF1*> HoughLines_zx = TMS_TrackFinder::GetFinder().GetHoughLines_zx();
+  for (std::vector<TF1*>::iterator it = HoughLines_zx.begin(); it != HoughLines_zx.end(); ++it) (*it)->Draw("same");
 
   Canvas->cd(2); 
   yz_view->Draw("colz");
   yz_box_FV->Draw("same");
   yz_box_Full->Draw("same");
   yz_Thin_Thick->Draw("same");
-  TMS_TrackFinder::GetFinder().GetHoughLine_zy()->Draw("same");
+  std::vector<TF1*> HoughLines_zy = TMS_TrackFinder::GetFinder().GetHoughLines_zy();
+  for (std::vector<TF1*>::iterator it = HoughLines_zy.begin(); it != HoughLines_zy.end(); ++it) (*it)->Draw("same");
   Canvas->Print(CanvasName+".pdf");
 
   if (DrawTrackFinding) {
