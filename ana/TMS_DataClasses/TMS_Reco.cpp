@@ -22,7 +22,9 @@ TMS_TrackFinder::TMS_TrackFinder() :
   SlopeWidth((SlopeMax-SlopeMin)/nSlope),
   zMaxHough((TMS_Const::TMS_Trans_Start+TMS_Const::TMS_Det_Offset[2])*10), // Max z for us to do Hough in, here choose transition layer
   nMinHits(20), // Minimum number of hits required to run track finding
-  nMaxMerges(1) // Maximum number of merges for one hit
+  nMaxMerges(1), // Maximum number of merges for one hit
+  // Initialise Highest cost to be very large
+  HighestCost(999)
 {
   // Apply the maximum Hough transform to the zx not zy: all bending happens in zx
 
@@ -55,7 +57,8 @@ TMS_TrackFinder::TMS_TrackFinder() :
 
 // The generic track finder
 void TMS_TrackFinder::FindTracks(TMS_Event &event) {
-  //std::cout << "Event: " << event.GetEventNumber() << std::endl;
+  std::cout << "Event: " << event.GetEventNumber() << std::endl;
+  //
 
   // Reset the candidate vector
   Candidates.clear();
@@ -70,6 +73,8 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
   std::vector<TMS_Hit> TMS_Hits = event.GetHits();
   // Require 20 hits
   if (TMS_Hits.size() < nMinHits) return;
+  BestFirstSearch(TMS_Hits);
+  return;
 
   // Maybe split up into zx and zy hits here
 
@@ -180,6 +185,9 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
 
   HoughLine_zx->SetParameter(0, InterceptOpt_zx);
   HoughLine_zx->SetParameter(1, SlopeOpt_zx);
+
+  HoughLines_zy.push_back(HoughLine_zy);
+  HoughLines_zx.push_back(HoughLine_zx);
 
   // Then run a clustering on the Hough Transform
   // Hough transform is most likely to pick out straigh features at begining of track candidate, so start looking there
@@ -382,6 +390,7 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
     std::cout << "StartPlane xz: " << StartPlane_xz << ", EndPlane xz: " << EndPlane_xz << std::endl;
   }
 
+  /*
   // Do a Hough transform on the remaining hits
   // If this Hough transform matches within some number the original Hough transform parameters, merge the tracks
   // Reset the accumulator (or make a new one?)
@@ -445,6 +454,7 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
   HoughLine_zx_2->SetLineColor(kWhite);
   HoughLine_zx_2->SetParameter(0, InterceptOpt_zx_2);
   HoughLine_zx_2->SetParameter(1, SlopeOpt_zx_2);
+  */
 
   /*
      std::cout << InterceptOpt_zx << " " << InterceptOpt_zx_2 << std::endl;
@@ -454,6 +464,7 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
      std::cout << SlopeOpt_zy << " " << SlopeOpt_zy_2 << std::endl;
      */
 
+  /*
   // Get the hits that intersect the second hough line
   // First make a second candidate vector
   std::vector<TMS_Hit> Candidates2;
@@ -558,6 +569,7 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
 
 
   // Run a Hough transform on the remaining HitPool to find second tracks
+  */
 
 
   /*
@@ -711,3 +723,328 @@ TH2D *TMS_TrackFinder::AccumulatorToTH2D(bool zy) {
   return accumulator;
 }
 
+// Implement A* algorithm for track finding, starting with most upstream to most downstream hit
+void TMS_TrackFinder::BestFirstSearch(std::vector<TMS_Hit> TMS_Hits) {
+
+  // First remove duplicate hits
+  std::vector<TMS_Hit> TMS_Hits_Cleaned;
+
+  for (std::vector<TMS_Hit>::iterator it = TMS_Hits.begin(); it != TMS_Hits.end(); ) {
+    TMS_Hit hit = *it;
+    TMS_Bar bar = hit.GetBar();
+    // Maybe this hit has already been counted
+    double z = bar.GetZ();
+    double y = bar.GetNotZ();
+    std::pair<double, double> temp = std::make_pair(z,y);
+    bool Duplicate = false;
+
+    // Skim out the duplicates
+    for (std::vector<TMS_Hit>::iterator jt = TMS_Hits_Cleaned.begin(); jt != TMS_Hits_Cleaned.end(); ++jt) {
+      TMS_Hit hit2 = *jt;
+      double z2 = hit2.GetZ();
+      double y2 = hit2.GetNotZ();
+      std::pair<double, double> temp2 = std::make_pair(z2,y2);
+      if (temp == temp2) {
+        Duplicate = true;
+        break;
+      }
+    }
+
+    if (!Duplicate) {
+      TMS_Hits_Cleaned.push_back(std::move(hit));
+      it = TMS_Hits.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  // Now split in yz and xz hits
+  std::vector<TMS_Hit> TMS_xz;
+  std::vector<TMS_Hit> TMS_yz;
+
+  for (std::vector<TMS_Hit>::iterator it = TMS_Hits_Cleaned.begin(); it != TMS_Hits_Cleaned.end(); ) {
+    TMS_Hit hit = (*it);
+    if (hit.GetBar().GetBarType() == TMS_Bar::kXBar) {
+      TMS_yz.push_back(std::move(hit));
+    } else if (hit.GetBar().GetBarType() == TMS_Bar::kYBar) {
+      TMS_xz.push_back(std::move(hit));
+    }
+    it = TMS_Hits_Cleaned.erase(it);
+  }
+
+  // Now sort in z
+  std::sort(TMS_yz.begin(), TMS_yz.end(), TMS_Hit::SortByZ);
+  std::sort(TMS_xz.begin(), TMS_xz.end(), TMS_Hit::SortByZ);
+
+  aNode First(TMS_xz.front().GetZ(), TMS_xz.front().GetNotZ(), 0);
+  aNode Last(TMS_xz.back().GetZ(), TMS_xz.back().GetNotZ(), TMS_xz.size());
+
+  // Calculate the Heuristic cost for each of the nodes to the last point
+  // Use the Manhattan distance or Euclidean distance?
+  // Also convert the TMS_Hit to our path-node
+  std::vector<aNode> Nodes;
+  // Give each node an ID
+  int NodeID = 0;
+  for (std::vector<TMS_Hit>::iterator it = TMS_xz.begin(); it != TMS_xz.end(); ++it, NodeID++) {
+
+    // Make the node
+    double x = (*it).GetZ();
+    double y = (*it).GetNotZ();
+
+    aNode TempNode(x, y, NodeID);
+    TempNode.HeuristicCost = TempNode.Calculate(Last);
+    TempNode.GroundCost = TempNode.Calculate(First);
+
+    // Now need to find the neighbours of the node to decide on where to go
+    // To find neighbours, look at the plane number and y
+    int PlaneNumber = (*it).GetPlaneNumber();
+    int NodeID_n = 0;
+    for (std::vector<TMS_Hit>::iterator jt = TMS_xz.begin(); jt != TMS_xz.end(); ++jt, NodeID_n++) {
+      int PlaneNumber_n = (*jt).GetPlaneNumber();
+      int DeltaPlane = PlaneNumber_n-PlaneNumber;
+      // Only look at adjacent bars in z (remember planes are alternating so adjacent xz bars are every two planes)
+      if (abs(DeltaPlane) > 2) continue;
+      double x_n = (*jt).GetZ();
+      double y_n = (*jt).GetNotZ();
+      double DeltaY = fabs(y_n-y);
+      // Get the number of vertical bars (NotZw gives bar width)
+      int DeltaY_Trunc = int(DeltaY/(*jt).GetNotZw());
+      // Allow for three bars
+      if (abs(DeltaY_Trunc) > 3) continue;
+
+      aNode Neighbour(x_n, y_n, NodeID_n);
+      Neighbour.SetHeuristic(Last);
+
+      // And the ground cost will update as we go along?
+      // The ground cost depends on if a diagonal or not is connected
+      double GroundCost = -999;
+      // left/right
+      if (abs(DeltaY_Trunc) == 0 && abs(DeltaPlane) == 2) GroundCost = 10;
+      // up/down
+      else if (abs(DeltaY_Trunc) == 1 && abs(DeltaPlane) == 0) GroundCost = 10;
+      // diagonal->prefer left/right followed by up/down
+      else if (abs(DeltaY_Trunc) == 1 && abs(DeltaPlane) == 2) GroundCost = 30;
+      // up/down by 2 (missing one bar)
+      else if (abs(DeltaY_Trunc) == 2 && abs(DeltaPlane) == 0) GroundCost = 20;
+      // up/down by 3 (missing three bars)
+      else if (abs(DeltaY_Trunc) == 3 && abs(DeltaPlane) == 0) GroundCost = 30;
+      // diagonal and missing 1 bar
+      else if (abs(DeltaY_Trunc) == 2 && abs(DeltaPlane) == 2) GroundCost = 60;
+      // diagonal and missing 2 bar
+      else if (abs(DeltaY_Trunc) == 3 && abs(DeltaPlane) == 2) GroundCost = 90;
+      // If we've truncated
+      else if (abs(DeltaY_Trunc) == 0 && abs(DeltaPlane) == 0) GroundCost = 10;
+
+      if (GroundCost == -999) {
+        std::cout << "Missed exceptioN!" << std::endl;
+        std::cout << "DeltaY_Trunc: " << DeltaY_Trunc << std::endl;
+        std::cout << "DeltaY: " << DeltaY << std::endl;
+        std::cout << "DeltaPlane: " << DeltaPlane << std::endl;
+        std::cout << "getnotzW: " << (*jt).GetNotZw() << std::endl;
+        throw;
+      }
+
+      Neighbour.SetGround(GroundCost);
+      Neighbour.ParentNodeID = NodeID;
+      Neighbour.NodeID = NodeID_n;
+      TempNode.Neighbours.push_back(Neighbour);
+    }
+    //TempNode.Print();
+    Nodes.push_back(TempNode);
+  }
+
+  //
+
+
+  // Keep a map of the cost so far for reaching an aNode
+  std::unordered_map<int, double> cost_so_far;
+  // Keep a map of the where a given aNode was reached from
+  std::unordered_map<int, int> came_from;
+  // The priority queue of which node to next evaluate
+  std::priority_queue<aNode, std::vector<aNode> > pq;
+
+  Nodes.front().Print();
+  std::cout << "to" << std::endl;
+  Nodes.back().Print();
+
+  std::cout << "Start loop..." << std::endl;
+  pq.push(Nodes.front());
+  cost_so_far[0] = 0;
+  came_from[0] = 0;
+  while (!pq.empty()) {
+    //std::cout << "Next in queue..." << std::endl;
+    aNode current = pq.top();
+    //current.Print();
+    pq.pop();
+    if (current == Nodes.back()) break;
+
+    // Loop over this node's neighbours
+    for (aNode neighbour : current.Neighbours) {
+      // Check the cost for getting to this node
+      double new_cost = cost_so_far[current.NodeID]+neighbour.HeuristicCost+neighbour.GroundCost;
+      // If we've never reached this node, or if this path to the node has less cost
+      if (cost_so_far.find(neighbour.NodeID) == cost_so_far.end() ||
+          new_cost < cost_so_far[neighbour.NodeID]) {
+        /*
+        std::cout << "updating" << std::endl;
+        std::cout << current.NodeID << " to " << neighbour.NodeID << std::endl;
+        std::cout << "old cost: " << cost_so_far[neighbour.NodeID] << " new cost: " << new_cost << std::endl;
+        */
+        cost_so_far[neighbour.NodeID] = new_cost;
+        pq.push(Nodes.at(neighbour.NodeID));
+        came_from[neighbour.NodeID] = current.NodeID;
+      }
+    }
+  }
+
+  for (auto pair: came_from) {
+    std::cout << "Node " << pair.first << " came from " << pair.second << std::endl;
+  }
+  std::cout << " ********* " << std::endl;
+
+  /*
+  for (auto node : Nodes) {
+    for (auto neighbour : node.Neighbours) {
+      neighbour.Print();
+    }
+  }
+  */
+
+
+  // Can now make graphs to use
+
+  // Starting point is the first vector entry in each (lowest z)
+
+  // End point is the last vector entry in each (highest z)
+
+  // First build the graph
+  // Allow for moving up/down, left/right and all diagonals
+  // Moving one plane to the right incurs no cost
+  // Moving one plane to the left incurs one cost
+  // Moving one bar up/down incurs one cost
+  // Moving diagonally incurs three cost (to prefer up/down followed my left/right)
+  //
+  // Then also explore skipping one? i.e. connect over missing 
+  // Probably don't allow skipping a z layer, but allow skipping one/two/three notZ layers
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // First implementation of best-first search
+  // Make connection costs for each of the hits
+  /*
+  std::vector<std::vector<ThreePair> > PositionCost;
+  for (std::vector<TMS_Hit>::iterator it = TMS_yz.begin(); it != TMS_yz.end(); ++it) {
+    TMS_Hit hit = (*it);
+    //double z = hit.GetZ();
+    double y = hit.GetNotZ();
+    int planeno = hit.GetPlaneNumber();
+
+    // Make the vector of costs for this hit
+    std::vector<ThreePair> ThisCost;
+    //std::cout << "Planenumber: " << planeno << std::endl;
+    // Calculate the cost for all hits
+    for (std::vector<TMS_Hit>::iterator jt = TMS_yz.begin(); jt != TMS_yz.end(); ++jt) {
+      TMS_Hit comp = (*jt);
+      // The difference in plane number
+      int DeltaPlane = comp.GetPlaneNumber()-planeno;
+      // Units of mm
+      double DeltaY = fabs(comp.GetNotZ()-y);
+      int DeltaY_Trunc = int(DeltaY/comp.GetNotZw());
+      // Check only adjacent planes in z and y
+      if (abs(DeltaPlane) > 2) continue;
+      // Check distance in y isn't crazy (4 times the bar width of 4 cm)
+      if (DeltaY_Trunc > 4) continue;
+
+         std::cout << "y: " << y << std::endl;
+         std::cout << "compy: " << comp.GetNotZ() << std::endl;
+         std::cout << "DeltaY_Trunc: " << DeltaY_Trunc << std::endl;
+
+      double cost = HighestCost;
+      // Moving forwads
+      if (DeltaPlane == 2 && DeltaY_Trunc == 0) cost = 1;
+      // Moving upwards/downwards only
+      else if (DeltaPlane == 0 && abs(DeltaY_Trunc) == 1) cost = 1;
+      // Moving backwards only
+      else if (DeltaPlane == -2 && DeltaY_Trunc == 0) cost = 1;
+      // Moving diagonally (discourage this move over upward/downward + backward/forward
+      else if (abs(DeltaPlane) == 2 && abs(DeltaY_Trunc) == 1) cost = 3;
+      // Moving upwards/downwards by 2-4 steps: discourage vs taking 2-4 one-steps
+      else if (DeltaPlane == 0 && abs(DeltaY_Trunc) > 1) cost = 1+abs(DeltaY_Trunc)*2;
+      // Moving diagonally by N steps
+      else if (abs(DeltaPlane) == 2 && abs(DeltaY_Trunc) > 1) cost = 1+abs(DeltaY_Trunc)*3;
+
+      // If it's the same hit choose to include it, or merge these before? eek
+      //else if (DeltaPlane == 0 && DeltaY_Trunc == 0) cost = 0;
+
+      //std::cout << "   move to plane: " << comp.GetPlaneNumber() << " notz: " << comp.GetNotZ() << " cost: " << cost << std::endl;
+
+      // Make the pair
+      ThisCost.push_back(ThreePair(comp.GetPlaneNumber(), comp.GetNotZ(), cost));
+    }
+
+    PositionCost.push_back(ThisCost);
+  }
+
+  // Should now have our great vector of costs for each of the hits
+  // Start the search
+  //int StartPlane = TMS_yz.front().GetPlaneNumber();
+  int FinishPlane = TMS_yz.back().GetPlaneNumber();
+  double FinishNotZ = TMS_yz.back().GetNotZ();
+
+  std::priority_queue<ThreePair, std::vector<ThreePair> > pq;
+  pq.push(ThreePair(TMS_yz.front().GetPlaneNumber(), TMS_yz.front().GetNotZ(), 0));
+
+  // Remember if we've visited each node
+  std::vector<bool> Visited;
+  for (size_t i = 0; i < PositionCost.size(); ++i) Visited.push_back(false);
+  Visited[0] = true;
+
+  while (!pq.empty()) {
+
+    ThreePair bla = pq.top();
+    int zplane = bla.xplane;
+    double notz = bla.y;
+    //std::cout << zplane << ", " << notz << ", " << bla.cost << std::endl;
+    pq.pop();
+
+    if (zplane == FinishPlane && notz == FinishNotZ) break;
+
+    // Now loop over each of the connections
+    int HitNumber = 0; 
+    for (std::vector<std::vector<ThreePair> >::iterator it = PositionCost.begin(); it != PositionCost.end(); ++it, HitNumber++) {
+      for (std::vector<ThreePair>::iterator jt = (*it).begin(); jt != (*it).end(); ++jt) {
+        ThreePair curr = (*jt);
+        //curr.Print();
+        if (!Visited[HitNumber]) {
+          pq.push(curr);
+        }
+      }
+      // Remember that this has been visited already
+      Visited[HitNumber] = true;
+    }
+
+  }
+  */
+
+  /*
+     std::cout << "***********" << std::endl;
+     for (std::vector<TMS_Hit>::iterator it = TMS_yz.begin(); it != TMS_yz.end(); ++it) {
+     std::cout << (*it).GetBar().GetZ() << std::endl;
+     }
+     */
+
+}
