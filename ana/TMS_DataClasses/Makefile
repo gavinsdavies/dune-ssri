@@ -24,25 +24,25 @@ BUILD_FLAGS = -Wl,-R -Wl,.
 # Our lovely collection of libs
 LIB_OBJ = $(EDEP_LIBS) $(ROOT_LIBS)
 
-TMS_OBJ = TMS_Bar.o TMS_Hit.o TMS_TrueHit.o TMS_Event.o TMS_TrueParticle.o TMS_EventViewer.o TMS_Reco.cpp
+TMS_OBJ = TMS_Bar.o TMS_Hit.o TMS_TrueHit.o TMS_Event.o TMS_TrueParticle.o TMS_EventViewer.o TMS_Reco.o
 
 %.o:%.cpp
 	$(CXX) -c $(CXXFLAGS) $<
 
 all: libTMS_Prod ConvertToTMSTree.exe
 
-libTMS_Prod: libTMS_Prod.a libTMS_Prod.so
+libTMS_Prod: libTMS_Prod.so
 
 ConvertToTMSTree.exe: ConvertToTMSTree.cpp libTMS_Prod
-	$(CXX) $(CXXFLAGS) -o ConvertToTMSTree.exe ConvertToTMSTree.cpp -L . -lTMS_Prod $(LIB_OBJ) -Wl,-R -Wl,.
+	$(CXX) $(CXXFLAGS) -o ConvertToTMSTree.exe ConvertToTMSTree.cpp -L . -lTMS_Prod $(LIB_OBJ) $(BUILD_FLAGS)
 
 # Make the archive or static lib
 libTMS_Prod.a: $(TMS_OBJ)
 	$(AR) $(ARFLAGS) $@ $^
 
 # Make the shared object
-libTMS_Prod.so: libTMS_Prod.a $(TMS_OBJ)
-	$(LD_SHARED) $(SO_FLAGS) $(CXXFLAGS) $^ -o $@ $(LIB_OBJ)
+libTMS_Prod.so: libTMS_Prod.a
+	$(LD_SHARED) $(SO_FLAGS) $(CXXFLAGS) -o $@ -Wl,--whole-archive $^ -Wl,--no-whole-archive $(LIB_OBJ)
 
 clean:
-	rm -f lib* *.o
+	rm -f lib* *.o *.a
