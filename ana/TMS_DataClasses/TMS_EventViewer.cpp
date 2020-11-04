@@ -23,13 +23,24 @@ DrawTrackFinding(true)
   // The 2D views
   xz_view = new TH2D("TMS_Viewer_xz", "TMS viewer xz;z (mm); x (mm); Energy Deposit (MeV)", nbinsz, zmin, zmax, nbinsx, xmin, xmax);
   yz_view = new TH2D("TMS_Viewer_yz", "TMS viewer yz;z (mm); y (mm); Energy Deposit (MeV)", nbinsz, zmin, zmax, nbinsy, ymin, ymax);
-  yz_view->GetZaxis()->SetTitleOffset(yz_view->GetZaxis()->GetTitleOffset()*1.3);
-  xz_view->GetZaxis()->SetTitleOffset(xz_view->GetZaxis()->GetTitleOffset()*1.3);
 
   xz_view->SetMinimum(-0.01);
   yz_view->SetMinimum(-0.01);
   xz_view->SetMaximum(4);
   yz_view->SetMaximum(4);
+
+  yz_view->GetZaxis()->SetTitleOffset(yz_view->GetZaxis()->GetTitleOffset()*1.2);
+  xz_view->GetZaxis()->SetTitleOffset(xz_view->GetZaxis()->GetTitleOffset()*1.2);
+
+  yz_view->GetYaxis()->SetTitleOffset(1.8);
+  xz_view->GetYaxis()->SetTitleOffset(1.8);
+
+  yz_view->GetYaxis()->SetMaxDigits(3);
+  yz_view->GetXaxis()->SetMaxDigits(3);
+  xz_view->GetYaxis()->SetMaxDigits(3);
+  xz_view->GetXaxis()->SetMaxDigits(3);
+
+  TGaxis::SetExponentOffset(0, -0.031, "x");
 
   // The canvas
   Canvas = new TCanvas("TMS_EventViewer", "TMS_EventViewer", 1024, 1024);
@@ -149,17 +160,18 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
   }
 
   // Loop over the reconstructed tracks
-  //std::vector<TMS_Hit> Candidates = TMS_TrackFinder::GetFinder().GetCandidates();
-  std::vector<std::vector<TMS_Hit> > TotalCandidates = TMS_TrackFinder::GetFinder().GetTotalCandidates();
+  std::vector<TMS_Hit> Candidates = TMS_TrackFinder::GetFinder().GetCandidates();
+  //std::vector<std::vector<TMS_Hit> > TotalCandidates = TMS_TrackFinder::GetFinder().GetTotalCandidates();
 
-  int iter = 0;
+  //int iter = 0;
   // Loop over each total candidates
-  for (std::vector<std::vector<TMS_Hit> >::iterator it = TotalCandidates.begin(); it != TotalCandidates.end(); ++it) {
-    std::vector<TMS_Hit> Candidates = (*it);
+  //for (std::vector<std::vector<TMS_Hit> >::iterator it = TotalCandidates.begin(); it != TotalCandidates.end(); ++it) {
+    //std::vector<TMS_Hit> Candidates = (*it);
 
-    double e = 3;
-    if (iter == 0) e = 100;
-    else e = 2;
+    //double e = 3;
+    //if (iter == 0) e = 100;
+    //else e = 2;
+    double e = 4;
     for (std::vector<TMS_Hit>::iterator jt = Candidates.begin(); jt != Candidates.end(); ++jt) {
 
       TMS_Bar bar = (*jt).GetBar();  
@@ -178,8 +190,9 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
       }
 
     }
-    iter++;
-  }
+    //iter++;
+  //}
+
 
   gStyle->SetPalette(kBird);
   Canvas->cd(1); 
@@ -200,6 +213,7 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
   yz_Thin_Thick->Draw("same");
   std::vector<TF1*> HoughLines_zy = TMS_TrackFinder::GetFinder().GetHoughLines_zy();
   for (std::vector<TF1*>::iterator it = HoughLines_zy.begin(); it != HoughLines_zy.end(); ++it) (*it)->Draw("same");
+
   Canvas->Print(CanvasName+".pdf");
 
   if (DrawTrackFinding) {

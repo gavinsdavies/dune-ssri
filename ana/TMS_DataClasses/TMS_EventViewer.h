@@ -4,6 +4,7 @@
 #include "TStyle.h"
 #include "TBox.h"
 #include "TLine.h"
+#include "TGaxis.h"
 
 #include "TMS_Event.h"
 #include "TMS_Reco.h"
