@@ -32,6 +32,16 @@ class TMS_Hit {
     const TMS_Bar &GetBar() { return Bar; };
     void SetBar(TMS_Bar bar) { Bar = bar; };
 
+    // Sort by increasing Z
+    static bool SortByZ(TMS_Hit &a, TMS_Hit &b) {
+      return ( a.GetBar().GetZ() < b.GetBar().GetZ() );
+    }
+
+    // Sort by increasing Z
+    static bool SortByT(TMS_Hit &a, TMS_Hit &b) {
+      return ( a.GetT() < b.GetT() );
+    }
+
     // The true particle that created this hit
     const TMS_TrueParticle &GetTrueParticle();
 
@@ -47,6 +57,18 @@ class TMS_Hit {
 
     double GetE() {return EnergyDeposit;};
     double GetT() {return Time;};
+
+    double GetX() { return Bar.GetX(); };
+    double GetY() { return Bar.GetY(); };
+    double GetZ() { return Bar.GetZ(); };
+    double GetNotZ() { return Bar.GetNotZ(); };
+
+    double GetXw() { return Bar.GetXw(); };
+    double GetYw() { return Bar.GetYw(); };
+    double GetZw() { return Bar.GetZw(); };
+    double GetNotZw() { return Bar.GetNotZw(); };
+
+    int GetPlaneNumber() {return Bar.GetPlaneNumber(); };
 
   private:
     // The true hit (x,y,z,t) --- does not quantise hit into bars
