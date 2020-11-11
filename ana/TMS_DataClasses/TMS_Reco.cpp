@@ -24,7 +24,8 @@ TMS_TrackFinder::TMS_TrackFinder() :
   nMinHits(20), // Minimum number of hits required to run track finding
   nMaxMerges(1), // Maximum number of merges for one hit
   // Initialise Highest cost to be very large
-  HighestCost(999)
+  HighestCost(999),
+  IsGreedy(false)
 {
   // Apply the maximum Hough transform to the zx not zy: all bending happens in zx
 
@@ -74,7 +75,6 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
   // Require 20 hits
   if (TMS_Hits.size() < nMinHits) return;
   BestFirstSearch(TMS_Hits);
-  return;
 
   // Maybe split up into zx and zy hits here
 
@@ -241,35 +241,8 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
 
     // Count the number of times a candidate merges adjacent hits
     unsigned int nMerges = 0;
-    bool InGap = false;
-    double CandPos = CandidateBar.GetNotZ();
-    double CandPosWidth = CandidateBar.GetNotZw();
-    // First check if this hit may be affected by gap region issues
-    // If so, allow search range to extend in z
-    if (CandidateBarType == TMS_Bar::kYBar) {
-      /*
-      std::cout << "CandPos: " << CandidateBar.GetNotZ() << std::endl;
-      std::cout << "Plane: " << CandidatePlaneNumber << std::endl;
-      */
-      double pos = CandPos + CandPosWidth;
-      double neg = CandPos - CandPosWidth;
-      // Check the top
-      if ((pos > TMS_Const::TMS_Dead_Top_T[0] && pos < TMS_Const::TMS_Dead_Top_T[1]) ||
-          (neg < TMS_Const::TMS_Dead_Top_T[1] && neg > TMS_Const::TMS_Dead_Top_T[0])) InGap = true;
-      // Check the center
-      else if ((pos > TMS_Const::TMS_Dead_Center_T[0] && pos < TMS_Const::TMS_Dead_Center_T[1]) ||
-          (neg < TMS_Const::TMS_Dead_Center_T[1] && neg > TMS_Const::TMS_Dead_Center_T[0])) InGap = true;
-      // Check the bottom
-      else if ((pos > TMS_Const::TMS_Dead_Bottom_T[0] && pos < TMS_Const::TMS_Dead_Bottom_T[1]) ||
-          (neg < TMS_Const::TMS_Dead_Bottom_T[1] && neg > TMS_Const::TMS_Dead_Bottom_T[0])) InGap = true;
-      else InGap = false;
-    }
-
-    /*
-    if (InGap) {
-      std::cout << CandPos << " is close to gap" << std::endl;
-    }
-    */
+    // Is this hit close to an airgap?
+    bool InGap = Candidate.NextToGap();
 
     // Now loop over each hit
     for (std::vector<TMS_Hit>::iterator jt = HitPool.begin(); jt != HitPool.end();) {
@@ -724,191 +697,28 @@ TH2D *TMS_TrackFinder::AccumulatorToTH2D(bool zy) {
 }
 
 // Implement A* algorithm for track finding, starting with most upstream to most downstream hit
-void TMS_TrackFinder::BestFirstSearch(std::vector<TMS_Hit> TMS_Hits) {
+void TMS_TrackFinder::BestFirstSearch(const std::vector<TMS_Hit> &TMS_Hits) {
 
   // First remove duplicate hits
-  std::vector<TMS_Hit> TMS_Hits_Cleaned;
-
-  for (std::vector<TMS_Hit>::iterator it = TMS_Hits.begin(); it != TMS_Hits.end(); ) {
-    TMS_Hit hit = *it;
-    TMS_Bar bar = hit.GetBar();
-    // Maybe this hit has already been counted
-    double z = bar.GetZ();
-    double y = bar.GetNotZ();
-    std::pair<double, double> temp = std::make_pair(z,y);
-    bool Duplicate = false;
-
-    // Skim out the duplicates
-    for (std::vector<TMS_Hit>::iterator jt = TMS_Hits_Cleaned.begin(); jt != TMS_Hits_Cleaned.end(); ++jt) {
-      TMS_Hit hit2 = *jt;
-      double z2 = hit2.GetZ();
-      double y2 = hit2.GetNotZ();
-      std::pair<double, double> temp2 = std::make_pair(z2,y2);
-      if (temp == temp2) {
-        Duplicate = true;
-        break;
-      }
-    }
-
-    if (!Duplicate) {
-      TMS_Hits_Cleaned.push_back(std::move(hit));
-      it = TMS_Hits.erase(it);
-    } else {
-      ++it;
-    }
-  }
+  std::vector<TMS_Hit> TMS_Hits_Cleaned = CleanHits(TMS_Hits);
 
   // Now split in yz and xz hits
-  std::vector<TMS_Hit> TMS_xz;
-  std::vector<TMS_Hit> TMS_yz;
+  std::vector<TMS_Hit> TMS_xz = ProjectHits(TMS_Hits_Cleaned, TMS_Bar::kYBar);
+  std::vector<TMS_Hit> TMS_yz = ProjectHits(TMS_Hits_Cleaned, TMS_Bar::kXBar);
 
-  for (std::vector<TMS_Hit>::iterator it = TMS_Hits_Cleaned.begin(); it != TMS_Hits_Cleaned.end(); ) {
-    TMS_Hit hit = (*it);
-    if (hit.GetBar().GetBarType() == TMS_Bar::kXBar) {
-      TMS_yz.push_back(std::move(hit));
-    } else if (hit.GetBar().GetBarType() == TMS_Bar::kYBar) {
-      TMS_xz.push_back(std::move(hit));
-    }
-    it = TMS_Hits_Cleaned.erase(it);
-  }
+  // Do a spatial analysis of the hits in y and x around low z to ignore hits that are disconnected from other hits
+  // Includes a simple sort in decreasing z (plane number)
+  SpatialPrio(TMS_yz);
+  SpatialPrio(TMS_xz);
 
-  // Now sort in z
-  std::sort(TMS_yz.begin(), TMS_yz.end(), TMS_Hit::SortByZ);
-  std::sort(TMS_xz.begin(), TMS_xz.end(), TMS_Hit::SortByZ);
+  std::vector<TMS_Hit> AStarHits_yz;
+  std::vector<TMS_Hit> AStarHits_xz;
+  if (TMS_yz.size() > 0) AStarHits_yz = RunAstar(TMS_yz);
+  if (TMS_xz.size() > 0) AStarHits_xz = RunAstar(TMS_xz);
 
-  aNode First(TMS_xz.front().GetZ(), TMS_xz.front().GetNotZ(), 0);
-  aNode Last(TMS_xz.back().GetZ(), TMS_xz.back().GetNotZ(), TMS_xz.size());
-
-  // Calculate the Heuristic cost for each of the nodes to the last point
-  // Use the Manhattan distance or Euclidean distance?
-  // Also convert the TMS_Hit to our path-node
-  std::vector<aNode> Nodes;
-  // Give each node an ID
-  int NodeID = 0;
-  for (std::vector<TMS_Hit>::iterator it = TMS_xz.begin(); it != TMS_xz.end(); ++it, NodeID++) {
-
-    // Make the node
-    double x = (*it).GetZ();
-    double y = (*it).GetNotZ();
-
-    aNode TempNode(x, y, NodeID);
-    TempNode.HeuristicCost = TempNode.Calculate(Last);
-    TempNode.GroundCost = TempNode.Calculate(First);
-
-    // Now need to find the neighbours of the node to decide on where to go
-    // To find neighbours, look at the plane number and y
-    int PlaneNumber = (*it).GetPlaneNumber();
-    int NodeID_n = 0;
-    for (std::vector<TMS_Hit>::iterator jt = TMS_xz.begin(); jt != TMS_xz.end(); ++jt, NodeID_n++) {
-      int PlaneNumber_n = (*jt).GetPlaneNumber();
-      int DeltaPlane = PlaneNumber_n-PlaneNumber;
-      // Only look at adjacent bars in z (remember planes are alternating so adjacent xz bars are every two planes)
-      if (abs(DeltaPlane) > 2) continue;
-      double x_n = (*jt).GetZ();
-      double y_n = (*jt).GetNotZ();
-      double DeltaY = fabs(y_n-y);
-      // Get the number of vertical bars (NotZw gives bar width)
-      int DeltaY_Trunc = int(DeltaY/(*jt).GetNotZw());
-      // Allow for three bars
-      if (abs(DeltaY_Trunc) > 3) continue;
-
-      aNode Neighbour(x_n, y_n, NodeID_n);
-      Neighbour.SetHeuristic(Last);
-
-      // And the ground cost will update as we go along?
-      // The ground cost depends on if a diagonal or not is connected
-      double GroundCost = -999;
-      // left/right
-      if (abs(DeltaY_Trunc) == 0 && abs(DeltaPlane) == 2) GroundCost = 10;
-      // up/down
-      else if (abs(DeltaY_Trunc) == 1 && abs(DeltaPlane) == 0) GroundCost = 10;
-      // diagonal->prefer left/right followed by up/down
-      else if (abs(DeltaY_Trunc) == 1 && abs(DeltaPlane) == 2) GroundCost = 30;
-      // up/down by 2 (missing one bar)
-      else if (abs(DeltaY_Trunc) == 2 && abs(DeltaPlane) == 0) GroundCost = 20;
-      // up/down by 3 (missing three bars)
-      else if (abs(DeltaY_Trunc) == 3 && abs(DeltaPlane) == 0) GroundCost = 30;
-      // diagonal and missing 1 bar
-      else if (abs(DeltaY_Trunc) == 2 && abs(DeltaPlane) == 2) GroundCost = 60;
-      // diagonal and missing 2 bar
-      else if (abs(DeltaY_Trunc) == 3 && abs(DeltaPlane) == 2) GroundCost = 90;
-      // If we've truncated
-      else if (abs(DeltaY_Trunc) == 0 && abs(DeltaPlane) == 0) GroundCost = 10;
-
-      if (GroundCost == -999) {
-        std::cout << "Missed exceptioN!" << std::endl;
-        std::cout << "DeltaY_Trunc: " << DeltaY_Trunc << std::endl;
-        std::cout << "DeltaY: " << DeltaY << std::endl;
-        std::cout << "DeltaPlane: " << DeltaPlane << std::endl;
-        std::cout << "getnotzW: " << (*jt).GetNotZw() << std::endl;
-        throw;
-      }
-
-      Neighbour.SetGround(GroundCost);
-      Neighbour.ParentNodeID = NodeID;
-      Neighbour.NodeID = NodeID_n;
-      TempNode.Neighbours.push_back(Neighbour);
-    }
-    //TempNode.Print();
-    Nodes.push_back(TempNode);
-  }
-
-  //
-
-
-  // Keep a map of the cost so far for reaching an aNode
-  std::unordered_map<int, double> cost_so_far;
-  // Keep a map of the where a given aNode was reached from
-  std::unordered_map<int, int> came_from;
-  // The priority queue of which node to next evaluate
-  std::priority_queue<aNode, std::vector<aNode> > pq;
-
-  Nodes.front().Print();
-  std::cout << "to" << std::endl;
-  Nodes.back().Print();
-
-  std::cout << "Start loop..." << std::endl;
-  pq.push(Nodes.front());
-  cost_so_far[0] = 0;
-  came_from[0] = 0;
-  while (!pq.empty()) {
-    //std::cout << "Next in queue..." << std::endl;
-    aNode current = pq.top();
-    //current.Print();
-    pq.pop();
-    if (current == Nodes.back()) break;
-
-    // Loop over this node's neighbours
-    for (aNode neighbour : current.Neighbours) {
-      // Check the cost for getting to this node
-      double new_cost = cost_so_far[current.NodeID]+neighbour.HeuristicCost+neighbour.GroundCost;
-      // If we've never reached this node, or if this path to the node has less cost
-      if (cost_so_far.find(neighbour.NodeID) == cost_so_far.end() ||
-          new_cost < cost_so_far[neighbour.NodeID]) {
-        /*
-        std::cout << "updating" << std::endl;
-        std::cout << current.NodeID << " to " << neighbour.NodeID << std::endl;
-        std::cout << "old cost: " << cost_so_far[neighbour.NodeID] << " new cost: " << new_cost << std::endl;
-        */
-        cost_so_far[neighbour.NodeID] = new_cost;
-        pq.push(Nodes.at(neighbour.NodeID));
-        came_from[neighbour.NodeID] = current.NodeID;
-      }
-    }
-  }
-
-  for (auto pair: came_from) {
-    std::cout << "Node " << pair.first << " came from " << pair.second << std::endl;
-  }
-  std::cout << " ********* " << std::endl;
-
-  /*
-  for (auto node : Nodes) {
-    for (auto neighbour : node.Neighbours) {
-      neighbour.Print();
-    }
-  }
-  */
+  // Copy over to the candidates
+  for (auto i : AStarHits_yz) Candidates.push_back(std::move(i));
+  for (auto i : AStarHits_xz) Candidates.push_back(std::move(i));
 
 
   // Can now make graphs to use
@@ -946,57 +756,57 @@ void TMS_TrackFinder::BestFirstSearch(std::vector<TMS_Hit> TMS_Hits) {
   // First implementation of best-first search
   // Make connection costs for each of the hits
   /*
-  std::vector<std::vector<ThreePair> > PositionCost;
-  for (std::vector<TMS_Hit>::iterator it = TMS_yz.begin(); it != TMS_yz.end(); ++it) {
-    TMS_Hit hit = (*it);
-    //double z = hit.GetZ();
-    double y = hit.GetNotZ();
-    int planeno = hit.GetPlaneNumber();
+     std::vector<std::vector<ThreePair> > PositionCost;
+     for (std::vector<TMS_Hit>::iterator it = TMS_yz.begin(); it != TMS_yz.end(); ++it) {
+     TMS_Hit hit = (*it);
+  //double z = hit.GetZ();
+  double y = hit.GetNotZ();
+  int planeno = hit.GetPlaneNumber();
 
-    // Make the vector of costs for this hit
-    std::vector<ThreePair> ThisCost;
-    //std::cout << "Planenumber: " << planeno << std::endl;
-    // Calculate the cost for all hits
-    for (std::vector<TMS_Hit>::iterator jt = TMS_yz.begin(); jt != TMS_yz.end(); ++jt) {
-      TMS_Hit comp = (*jt);
-      // The difference in plane number
-      int DeltaPlane = comp.GetPlaneNumber()-planeno;
-      // Units of mm
-      double DeltaY = fabs(comp.GetNotZ()-y);
-      int DeltaY_Trunc = int(DeltaY/comp.GetNotZw());
-      // Check only adjacent planes in z and y
-      if (abs(DeltaPlane) > 2) continue;
-      // Check distance in y isn't crazy (4 times the bar width of 4 cm)
-      if (DeltaY_Trunc > 4) continue;
+  // Make the vector of costs for this hit
+  std::vector<ThreePair> ThisCost;
+  //std::cout << "Planenumber: " << planeno << std::endl;
+  // Calculate the cost for all hits
+  for (std::vector<TMS_Hit>::iterator jt = TMS_yz.begin(); jt != TMS_yz.end(); ++jt) {
+  TMS_Hit comp = (*jt);
+  // The difference in plane number
+  int DeltaPlane = comp.GetPlaneNumber()-planeno;
+  // Units of mm
+  double DeltaY = fabs(comp.GetNotZ()-y);
+  int DeltaY_Trunc = int(DeltaY/comp.GetNotZw());
+  // Check only adjacent planes in z and y
+  if (abs(DeltaPlane) > 2) continue;
+  // Check distance in y isn't crazy (4 times the bar width of 4 cm)
+  if (DeltaY_Trunc > 4) continue;
 
-         std::cout << "y: " << y << std::endl;
-         std::cout << "compy: " << comp.GetNotZ() << std::endl;
-         std::cout << "DeltaY_Trunc: " << DeltaY_Trunc << std::endl;
+  std::cout << "y: " << y << std::endl;
+  std::cout << "compy: " << comp.GetNotZ() << std::endl;
+  std::cout << "DeltaY_Trunc: " << DeltaY_Trunc << std::endl;
 
-      double cost = HighestCost;
-      // Moving forwads
-      if (DeltaPlane == 2 && DeltaY_Trunc == 0) cost = 1;
-      // Moving upwards/downwards only
-      else if (DeltaPlane == 0 && abs(DeltaY_Trunc) == 1) cost = 1;
-      // Moving backwards only
-      else if (DeltaPlane == -2 && DeltaY_Trunc == 0) cost = 1;
-      // Moving diagonally (discourage this move over upward/downward + backward/forward
-      else if (abs(DeltaPlane) == 2 && abs(DeltaY_Trunc) == 1) cost = 3;
-      // Moving upwards/downwards by 2-4 steps: discourage vs taking 2-4 one-steps
-      else if (DeltaPlane == 0 && abs(DeltaY_Trunc) > 1) cost = 1+abs(DeltaY_Trunc)*2;
-      // Moving diagonally by N steps
-      else if (abs(DeltaPlane) == 2 && abs(DeltaY_Trunc) > 1) cost = 1+abs(DeltaY_Trunc)*3;
+  double cost = HighestCost;
+  // Moving forwads
+  if (DeltaPlane == 2 && DeltaY_Trunc == 0) cost = 1;
+  // Moving upwards/downwards only
+  else if (DeltaPlane == 0 && abs(DeltaY_Trunc) == 1) cost = 1;
+  // Moving backwards only
+  else if (DeltaPlane == -2 && DeltaY_Trunc == 0) cost = 1;
+  // Moving diagonally (discourage this move over upward/downward + backward/forward
+  else if (abs(DeltaPlane) == 2 && abs(DeltaY_Trunc) == 1) cost = 3;
+  // Moving upwards/downwards by 2-4 steps: discourage vs taking 2-4 one-steps
+  else if (DeltaPlane == 0 && abs(DeltaY_Trunc) > 1) cost = 1+abs(DeltaY_Trunc)*2;
+  // Moving diagonally by N steps
+  else if (abs(DeltaPlane) == 2 && abs(DeltaY_Trunc) > 1) cost = 1+abs(DeltaY_Trunc)*3;
 
-      // If it's the same hit choose to include it, or merge these before? eek
-      //else if (DeltaPlane == 0 && DeltaY_Trunc == 0) cost = 0;
+  // If it's the same hit choose to include it, or merge these before? eek
+  //else if (DeltaPlane == 0 && DeltaY_Trunc == 0) cost = 0;
 
-      //std::cout << "   move to plane: " << comp.GetPlaneNumber() << " notz: " << comp.GetNotZ() << " cost: " << cost << std::endl;
+  //std::cout << "   move to plane: " << comp.GetPlaneNumber() << " notz: " << comp.GetNotZ() << " cost: " << cost << std::endl;
 
-      // Make the pair
-      ThisCost.push_back(ThreePair(comp.GetPlaneNumber(), comp.GetNotZ(), cost));
-    }
+  // Make the pair
+  ThisCost.push_back(ThreePair(comp.GetPlaneNumber(), comp.GetNotZ(), cost));
+  }
 
-    PositionCost.push_back(ThisCost);
+  PositionCost.push_back(ThisCost);
   }
 
   // Should now have our great vector of costs for each of the hits
@@ -1015,36 +825,429 @@ void TMS_TrackFinder::BestFirstSearch(std::vector<TMS_Hit> TMS_Hits) {
 
   while (!pq.empty()) {
 
-    ThreePair bla = pq.top();
-    int zplane = bla.xplane;
-    double notz = bla.y;
-    //std::cout << zplane << ", " << notz << ", " << bla.cost << std::endl;
-    pq.pop();
+  ThreePair bla = pq.top();
+  int zplane = bla.xplane;
+  double notz = bla.y;
+  //std::cout << zplane << ", " << notz << ", " << bla.cost << std::endl;
+  pq.pop();
 
-    if (zplane == FinishPlane && notz == FinishNotZ) break;
+  if (zplane == FinishPlane && notz == FinishNotZ) break;
 
-    // Now loop over each of the connections
-    int HitNumber = 0; 
-    for (std::vector<std::vector<ThreePair> >::iterator it = PositionCost.begin(); it != PositionCost.end(); ++it, HitNumber++) {
-      for (std::vector<ThreePair>::iterator jt = (*it).begin(); jt != (*it).end(); ++jt) {
-        ThreePair curr = (*jt);
-        //curr.Print();
-        if (!Visited[HitNumber]) {
-          pq.push(curr);
-        }
+  // Now loop over each of the connections
+  int HitNumber = 0; 
+  for (std::vector<std::vector<ThreePair> >::iterator it = PositionCost.begin(); it != PositionCost.end(); ++it, HitNumber++) {
+    for (std::vector<ThreePair>::iterator jt = (*it).begin(); jt != (*it).end(); ++jt) {
+      ThreePair curr = (*jt);
+      //curr.Print();
+      if (!Visited[HitNumber]) {
+        pq.push(curr);
       }
-      // Remember that this has been visited already
-      Visited[HitNumber] = true;
+    }
+    // Remember that this has been visited already
+    Visited[HitNumber] = true;
+  }
+
+}
+*/
+
+/*
+   std::cout << "***********" << std::endl;
+   for (std::vector<TMS_Hit>::iterator it = TMS_yz.begin(); it != TMS_yz.end(); ++it) {
+   std::cout << (*it).GetBar().GetZ() << std::endl;
+   }
+   */
+
+}
+
+// Remove duplicate hits
+std::vector<TMS_Hit> TMS_TrackFinder::CleanHits(const std::vector<TMS_Hit> &TMS_Hits) {
+
+  std::vector<TMS_Hit> TMS_Hits_Cleaned;
+
+  for (std::vector<TMS_Hit>::const_iterator it = TMS_Hits.begin(); it != TMS_Hits.end(); ++it) {
+    TMS_Hit hit = *it;
+    TMS_Bar bar = hit.GetBar();
+    // Maybe this hit has already been counted
+    double z = bar.GetZ();
+    double y = bar.GetNotZ();
+    std::pair<double, double> temp = std::make_pair(z,y);
+    bool Duplicate = false;
+
+    // Skim out the duplicates
+    for (std::vector<TMS_Hit>::const_iterator jt = TMS_Hits_Cleaned.begin(); jt != TMS_Hits_Cleaned.end(); ++jt) {
+      TMS_Hit hit2 = *jt;
+      double z2 = hit2.GetZ();
+      double y2 = hit2.GetNotZ();
+      std::pair<double, double> temp2 = std::make_pair(z2,y2);
+      if (temp == temp2) {
+        Duplicate = true;
+        break;
+      }
     }
 
+    if (!Duplicate) {
+      TMS_Hits_Cleaned.push_back(std::move(hit));
+    }
+  }
+
+  // Remove zero entries
+  // Figure out why these happen?
+  for (std::vector<TMS_Hit>::iterator jt = TMS_Hits_Cleaned.begin(); jt != TMS_Hits_Cleaned.end(); ) {
+    if ((*jt).GetZ() == 0 || (*jt).GetNotZ() == 0) {
+      jt = TMS_Hits_Cleaned.erase(jt);
+    } else {
+      jt++;
+    }
+  }
+
+  return TMS_Hits_Cleaned;
+}
+
+std::vector<TMS_Hit> TMS_TrackFinder::ProjectHits(const std::vector<TMS_Hit> &TMS_Hits, TMS_Bar::BarType bartype) {
+
+  std::vector<TMS_Hit> returned;
+
+  for (std::vector<TMS_Hit>::const_iterator it = TMS_Hits.begin(); it != TMS_Hits.end(); ++it) {
+    TMS_Hit hit = (*it);
+    if (hit.GetBar().GetBarType() == bartype) {
+      returned.push_back(std::move(hit));
+    }
+  }
+
+  return returned;
+}
+
+std::vector<TMS_Hit> TMS_TrackFinder::RunAstar(const std::vector<TMS_Hit> &TMS_xz) {
+
+  // Remember which orientation these hits are
+  // needed when we potentially skip the air gap in xz (but not in yz!)
+  bool IsXZ = ((TMS_xz[0].GetBar()).GetBarType() == TMS_Bar::kYBar);
+
+  // Set the first and last hit to calculate the heuristic to
+  aNode Last(TMS_xz.back().GetPlaneNumber(), TMS_xz.back().GetNotZ(), TMS_xz.size());
+
+  // Also convert the TMS_Hit to our path-node
+  std::vector<aNode> Nodes;
+
+  // Give each node an ID
+  int NodeID = 0;
+  for (std::vector<TMS_Hit>::const_iterator it = TMS_xz.begin(); it != TMS_xz.end(); ++it, NodeID++) {
+
+    // Use the x position as plane number
+    double x = (*it).GetPlaneNumber();
+    double y = (*it).GetNotZ();
+    double yw = (*it).GetNotZw();
+
+    // Make the node
+    aNode TempNode(x, y, yw, NodeID);
+    // Calculate the Heuristic cost for each of the nodes to the last point
+    TempNode.SetHeuristicCost(Last);
+
+    Nodes.push_back(TempNode);
+  }
+
+  // Can probably evaluate the last node here: if heuristic is large for the 5 nearest hits it's likely wrong?
+
+  // Now find the neighbours of each node
+  for (std::vector<aNode>::iterator it = Nodes.begin(); it != Nodes.end(); ++it) {
+
+    int NodeID_n = 0;
+
+    double x = (*it).x;
+    double y = (*it).y;
+
+    // Check if we're close to the gap if in xz view
+    bool IsNextToGap = false;
+    if (IsXZ) {
+      IsNextToGap = NextToGap(y, (*it).yw);
+    }
+
+    for (std::vector<aNode>::iterator jt = Nodes.begin(); jt != Nodes.end(); ++jt, NodeID_n++) {
+
+      // First check this node isn't itself!
+      if ((*jt) == (*it)) continue;
+
+      // Get the address
+      aNode* Pointer = &(*jt);
+
+      double xcan = Pointer->x;
+      double DeltaPlane = xcan-x;
+
+      double y_n = (*jt).y;
+      double DeltaY = fabs(y_n-y);
+
+      // Get the number of vertical bars (NotZw gives bar width)
+      int DeltaY_Trunc = int(DeltaY/(*jt).yw);
+
+      // Find the other hits that are next to the gaps
+      bool IsNextToGap_cand = NextToGap(y_n, (*jt).yw);
+
+      // Only look at adjacent bars in z (remember planes are alternating so adjacent xz bars are every two planes)
+      if (!(IsNextToGap_cand && IsNextToGap) && abs(DeltaPlane) > 2) continue;
+      // Allow for three bars at maximum
+      if (abs(DeltaY_Trunc) > 3) continue;
+
+      // And the ground cost will update as we go along?
+      // The ground cost depends on if a diagonal or not is connected
+      double GroundCost = HighestCost;
+      // Make a special exception when to candidates are at the gap; make the gap jump cheap
+      if (IsNextToGap && IsNextToGap_cand) GroundCost = abs(DeltaPlane)*5;
+      else {
+        // left/right
+        if (abs(DeltaY_Trunc) == 0 && abs(DeltaPlane) == 2) GroundCost = 10;
+        // up/down
+        else if (abs(DeltaY_Trunc) == 1 && abs(DeltaPlane) == 0) GroundCost = 10;
+        // diagonal->prefer left/right followed by up/down
+        else if (abs(DeltaY_Trunc) == 1 && abs(DeltaPlane) == 2) GroundCost = 40;
+        // up/down by 2 (missing one bar) -- make less preferntial than two single moves
+        // necessary for missing deposits
+        else if (abs(DeltaY_Trunc) == 2 && abs(DeltaPlane) == 0) GroundCost = 40;
+        // diagonal and missing 1 y-bar
+        // necessary for missing deposits
+        else if (abs(DeltaY_Trunc) == 2 && abs(DeltaPlane) == 2) GroundCost = 60;
+        // diagonal and missing 2 bar
+        // necessary for missing deposits
+        else if (abs(DeltaY_Trunc) == 3 && abs(DeltaPlane) == 2) GroundCost = 120;
+        // up/down by 3 (missing three bars)
+        // necessary for missing deposits
+        else if (abs(DeltaY_Trunc) == 3 && abs(DeltaPlane) == 0) GroundCost = 90;
+        // If we've truncated
+        else if (abs(DeltaY_Trunc) == 0 && abs(DeltaPlane) == 0) GroundCost = 0;
+      }
+      // Catch when we're on an airgap; incur standard penalty
+      //else GroundCost = 1000; // Put a large penalty in the case where we need to violate the above to cross a gap
+
+      // This should never happen but is a very very useful check!
+      if (GroundCost == HighestCost) {
+        std::cout << "Missed exceptioN!" << std::endl;
+        std::cout << "DeltaY_Trunc: " << DeltaY_Trunc << std::endl;
+        std::cout << "DeltaY: " << DeltaY << std::endl;
+        std::cout << "DeltaPlane: " << DeltaPlane << std::endl;
+        std::cout << "getnotzW: " << (*jt).yw << std::endl;
+        throw;
+      }
+
+      // If a greedy algorithm, have no ground cost (only condition on getting closer to the goal)
+      if (IsGreedy) GroundCost = 0;
+
+      // Remember how much it is for this node to connect to this neighbour
+      (*it).Neighbours[Pointer] = GroundCost;
+    }
+    /*
+       if (IsNextToGap) {
+       std::cout << "**" << std::endl;
+       (*it).Print();
+       std::cout << " is next to gap has neighbours: " << std::endl;
+       for (auto i : (*it).Neighbours) {
+       i.first->Print();
+       std::cout << "groundcost: " << i.second << std::endl;
+       std::cout << "totalcost: " << i.first->HeuristicCost+i.second << std::endl;
+       }
+       }
+       */
+  }
+
+  /*
+  // Remove hit if it only has one neighbour
+  for (std::vector<aNode>::iterator it = Nodes.begin(); it != Nodes.end(); ) {
+    if ((*it).Neighbours.size() < 2) {
+      it = Nodes.erase(it);
+    } else {
+      it++;
+    }
   }
   */
 
+  // Keep a map of the cost so far for reaching an aNode
+  std::unordered_map<int, double> cost_so_far;
+  // Keep a map of the where a given aNode was reached from
+  std::unordered_map<int, int> came_from;
+  // The priority queue of which node to next evaluate
+  std::priority_queue<aNode, std::vector<aNode> > pq;
+
+  pq.push(Nodes.front());
+  cost_so_far[0] = 0;
+  came_from[0] = 0;
+  // Keep track when we hit the last point
+  bool LastPoint = false;
+  //while (!pq.empty() || !LastPoint) {
+  while (!pq.empty()) {
+    //std::cout << "Next in queue..." << std::endl;
+    aNode current = pq.top();
+    if (LastPoint) break;
+    pq.pop();
+
+    // If this is the last point, need to calculate the final cost
+    if (current == Nodes.back()) LastPoint = true;
+
+    // Loop over this node's neighbours
+    for (auto neighbour : current.Neighbours) {
+      // Check the cost for getting to this node
+      double new_cost = cost_so_far[current.NodeID] + // The current cost for getting to this node (irrespective of neighbours)
+        neighbour.first->HeuristicCost + // Add up the Heuristic cost of moving to this neighbour
+        neighbour.second; // Add up the ground cost of moving to this neighbour
+
+      // If we've never reached this node, or if this path to the node has less cost
+      if (cost_so_far.find(neighbour.first->NodeID) == cost_so_far.end() ||
+          new_cost < cost_so_far[neighbour.first->NodeID]) {
+        cost_so_far[neighbour.first->NodeID] = new_cost; // Update the cost to get to this node via this path
+        pq.push(Nodes.at(neighbour.first->NodeID)); // Add to the priority list
+        came_from[neighbour.first->NodeID] = current.NodeID; // Update where this node came from
+      }
+    }
+  }
+
+  NodeID = pq.top().NodeID;
+  // Check how big the candidate is of total
+  std::cout << "NodeID of top: " << NodeID << std::endl;
+
+  std::cout << "Path: " << std::endl;
+  if (NodeID != Last.NodeID) {
+    std::cout << "Did not find end of path" << std::endl;
+  }
+
+
+  // Now push back the candidates!
+  std::vector<TMS_Hit> returned;
+  while (NodeID != 0) {
+    returned.push_back(TMS_xz[NodeID]);
+    NodeID = came_from[NodeID];
+    if (NodeID == came_from[NodeID]) {
+      returned.push_back(TMS_xz[NodeID]);
+      break;
+    }
+  }
+  if (NodeID != 0) {
+    std::cout << "did not find last point" << std::endl;
+  }
+
+  std::cout << "found path from " << pq.top().NodeID << std::endl;
+  aNode pqtop = pq.top();
+  pqtop.Print();
+  std::cout << "to " << NodeID << std::endl;
+  Nodes[NodeID].Print();
+
+
+  std::cout << " ********* " << std::endl;
+  return returned;
+}
+
+// Gaps are in xz view at x = -1717 to -1804
+// barpos is position of bar, width is width of bar
+bool TMS_TrackFinder::NextToGap(double barpos, double width) {
+  // Get the center of the adjacent bar
+  // If this is inside one of the gaps, this bar is next to a gap
+  double pos = barpos+width;
+  double neg = barpos-width;
+
+  // Check the top
+  if ((pos > TMS_Const::TMS_Dead_Top_T[0] && pos < TMS_Const::TMS_Dead_Top_T[1]) ||
+      (neg < TMS_Const::TMS_Dead_Top_T[1] && neg > TMS_Const::TMS_Dead_Top_T[0])) return true;
+
+  // Check the center
+  else if ((pos > TMS_Const::TMS_Dead_Center_T[0] && pos < TMS_Const::TMS_Dead_Center_T[1]) ||
+      (neg < TMS_Const::TMS_Dead_Center_T[1] && neg > TMS_Const::TMS_Dead_Center_T[0])) return true;
+
+  // Check the bottom
+  else if ((pos > TMS_Const::TMS_Dead_Bottom_T[0] && pos < TMS_Const::TMS_Dead_Bottom_T[1]) ||
+      (neg < TMS_Const::TMS_Dead_Bottom_T[1] && neg > TMS_Const::TMS_Dead_Bottom_T[0])) return true;
+
+  else return false;
+
+  return false;
+}
+
+// Do a quick analysis of the hits that are sorted *DESCENDING* in z
+void TMS_TrackFinder::SpatialPrio(std::vector<TMS_Hit> &TMS_Hits) {
+
+  // First do a normal sort decreasing in z
+  std::sort(TMS_Hits.begin(), TMS_Hits.end(), TMS_Hit::SortByZ);
+
   /*
-     std::cout << "***********" << std::endl;
-     for (std::vector<TMS_Hit>::iterator it = TMS_yz.begin(); it != TMS_yz.end(); ++it) {
-     std::cout << (*it).GetBar().GetZ() << std::endl;
-     }
-     */
+  // Get the first 10 hits
+  std::vector<double> Hits_First;
+  double sum = 0;
+  double sum2 = 0;
+  int firstplane = TMS_Hits.back().GetPlaneNumber();
+  // Read in from the back
+  for (std::vector<TMS_Hit>::reverse_iterator it = TMS_Hits.rbegin(); it != TMS_Hits.rend(); ++it) {
+    double planeval = (*it).GetPlaneNumber();
+    // Look at the first 3 planes in each view
+    if (planeval > firstplane+6) break;
+    double xval = (*it).GetNotZ();
+    Hits_First.push_back(xval);
+    sum += xval;
+    sum2 += xval*xval;
+  }
+
+  // Make the median of the entries
+  int nEntries = Hits_First.size();
+  if (nEntries == 0) return;
+  double avg = sum/nEntries;
+  double rms = sqrt(sum2/nEntries - (sum/nEntries)*(sum/nEntries));
+  //std::sort(Hits_First.begin(), Hits_First.end());
+  //double median = 0;
+  //if (nEntries % 2 != 0) median = Hits_First[nEntries/2];
+  //else median = 0.5*(Hits_First[(nEntries-1)/2] + Hits_First[(nEntries+1)/2]);
+  std::cout << "Looked at " << nEntries << " hits" << std::endl;
+  std::cout << "avg: " << avg << std::endl;
+  //std::cout << "med: " << median << std::endl;
+  std::cout << "rms: " << rms << std::endl;
+
+  // Don't remove hits; only reprioritise them if they're right at the front/back
+  // Since we run on back to front we need to do both
+  int nTotal = TMS_Hits.size();
+  // Figure out how deep in we have to go
+  int good = 999;
+  for (int i = 0; i < nTotal; ++i) {
+    double entry = TMS_Hits[i].GetNotZ();
+    // Only allow to switch points in first plane
+    if (TMS_Hits[i].GetPlaneNumber() > firstplane) break;
+    if (entry < avg+rms && entry > avg-rms) {
+      good = i;
+      std::cout << "Swapping " << TMS_Hits[i].GetNotZ() << " for " << TMS_Hits[0].GetNotZ() << std::endl;
+      TMS_Hits[good] = TMS_Hits[nTotal];
+      TMS_Hits[nTotal] = TMS_Hits[i];
+      break;
+    }
+  }
+
+  int lastplane = TMS_Hits.front().GetPlaneNumber();
+  std::vector<double> Hits_Last;
+  sum = 0;
+  sum2 = 0;
+  for (std::vector<TMS_Hit>::iterator it = TMS_Hits.begin(); it != TMS_Hits.end(); ++it) {
+    double planeval = (*it).GetPlaneNumber();
+    // Look at the first 3 planes in each view
+    if (planeval > lastplane+6) break;
+    double xval = (*it).GetNotZ();
+    Hits_Last.push_back(xval);
+    sum += xval;
+    sum2 += xval*xval;
+  }
+  nEntries = Hits_Last.size();
+  if (nEntries == 0) return;
+  avg = sum/nEntries;
+  rms = sqrt(sum2/nEntries - (sum/nEntries)*(sum/nEntries));
+  std::cout << "Looked at " << nEntries << " hits" << std::endl;
+  std::cout << "avg: " << avg << std::endl;
+  //std::cout << "med: " << median << std::endl;
+  std::cout << "rms: " << rms << std::endl;
+
+  // Figure out how deep in we have to go
+  good = 999;
+  for (int i = 0; i < nTotal; ++i) {
+    double entry = TMS_Hits[i].GetNotZ();
+    // Only allow to switch points in first plane
+    if (TMS_Hits[i].GetPlaneNumber() < lastplane-4) break;
+    if (entry < avg+rms && entry > avg-rms) {
+      good = i;
+      std::cout << "Swapping " << TMS_Hits[i].GetNotZ() << " for " << TMS_Hits[0].GetNotZ() << std::endl;
+      TMS_Hits[good] = TMS_Hits[0];
+      TMS_Hits[0] = TMS_Hits[i];
+      break;
+    }
+  }
+  */
 
 }

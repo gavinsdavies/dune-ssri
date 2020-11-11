@@ -20,13 +20,15 @@
 class aNode {
   public:
 
-    aNode(double xval, double yval): 
-      x(xval), y(yval), 
-      HeuristicCost(-999), GroundCost(-999),
-      ParentNodeID(-999), NodeID(-999) {
+    enum HeuristicType { kManhattan, kEuclidean, kUnkown };
+
+    aNode(double xval, double yval, double ywval): 
+      x(xval), y(yval), yw(ywval), 
+      HeuristicCost(-999), NodeID(-999),
+      Heuristic(kEuclidean) { // what calculator
     };
 
-    aNode(double xval, double yval, int ID): aNode(xval, yval) {
+    aNode(double xval, double yval, double ywval, int ID): aNode(xval, yval, ywval) {
       NodeID = ID;
     };
 
@@ -34,54 +36,49 @@ class aNode {
       return (x == other.x && y == other.y);
     }
 
-    /*
-    bool operator<(aNode const &other) {
-      return other.HeuristicCost < HeuristicCost;
-    }
-    */
-
     double Calculate(aNode const &other) {
-      double deltax = x-other.x;
-      double deltay = y-other.y;
-      // All these units are in mm
-      return (std::abs(deltax)+std::abs(deltay))/100;
+      // x is the plane number, y is in mm
+      // jumping one plane incurs 10 ground, so reflect that here; jumping 2 planes (i.e. adjacent) should be 10 ground, jumping 4 planes (i.e. next to adjacent) is double that
+      double deltax = (x-other.x)*5;
+      // Moving 1 plane up is 10 ground cost, so reflect that here too
+      double deltay = ((y-other.y)/yw)*10;
+      if (Heuristic == kManhattan) return std::abs(deltax)+std::abs(deltay);
+      else if (Heuristic == kEuclidean) return sqrt(deltax*deltax+deltay*deltay);
+      else return 999;
+      return 999;
     }
 
-    void SetHeuristic(aNode const &other) {
+    void SetHeuristicCost(aNode const &other) {
       HeuristicCost = Calculate(other);
     }
 
-    void SetGround(aNode const &other) {
-      GroundCost = Calculate(other);
-    }
-
-    void SetHeuristic(double val) {
+    void SetHeuristicCost(double val) {
       HeuristicCost = val;
     }
 
-    void SetGround(double val) {
-      GroundCost = val;
+    void SetHeuristic(HeuristicType a) {
+      Heuristic = a;
     }
 
     // Position
     double x;
     double y;
+    double yw;
     // Costs
     double HeuristicCost;
-    double GroundCost;
     // Neighbours
-    std::list<aNode> Neighbours;
-    // Parent node
-    int ParentNodeID;
+    std::unordered_map<aNode*, double> Neighbours;
     // self ID
     int NodeID;
+    // What Heuristic do we use
+    HeuristicType Heuristic;
 
     void Print() {
       std::cout << "NodeID: " << NodeID << std::endl;
       std::cout << "x, y = " << x << ", " << y << std::endl;
-      std::cout << "Heuristic: " << HeuristicCost << " Ground: " << GroundCost << std::endl;
+      std::cout << "Heuristic: " << HeuristicCost << std::endl; //" Ground: " << GroundCost << std::endl;
       std::cout << "Number of neighbours: " << Neighbours.size() << std::endl;
-      std::cout << "ParentNodeID: " << ParentNodeID << std::endl;
+      //std::cout << "ParentNodeID: " << ParentNodeID << std::endl;
     }
 };
 
@@ -122,8 +119,19 @@ class TMS_TrackFinder {
 
     void SetZMaxHough(double z) { zMaxHough = z;};
 
-    void BestFirstSearch(std::vector<TMS_Hit> TMS_Hits);
+    // Run a best first search
+    void BestFirstSearch(const std::vector<TMS_Hit> &TMS_Hits);
 
+    // Clean up the hits, removing duplicates and zero entries
+    std::vector<TMS_Hit> CleanHits(const std::vector<TMS_Hit> &TMS_Hits);
+    // Get hits projected onto xz or yz
+    std::vector<TMS_Hit> ProjectHits(const std::vector<TMS_Hit> &TMS_Hits, TMS_Bar::BarType bartype = TMS_Bar::kXBar);
+    std::vector<TMS_Hit> RunAstar(const std::vector<TMS_Hit> &TMS_Hits);
+
+    // Helper function to check if a hit is next to a gap
+    bool NextToGap(double, double);
+
+    void SpatialPrio(std::vector<TMS_Hit> &TMS_Hits);
 
   private:
     TMS_TrackFinder();
@@ -176,6 +184,7 @@ class TMS_TrackFinder {
     unsigned int nMaxMerges;
 
     double HighestCost;
+    bool IsGreedy;
 };
 
 #endif
