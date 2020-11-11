@@ -2,36 +2,40 @@ void magbend(std::string filename) {
   gStyle->SetPalette(55);
 
   TFile *file = new TFile(filename.c_str());
-  TTree *tree = (TTree*)file->Get("tree");
-  //TChain *tree = new TChain("tree");
-  //TString fileset = filename.c_str();
-  //fileset = fileset(0,fileset.Last('/')+1);
+  //TTree *tree = (TTree*)file->Get("tree");
+  TChain *tree = new TChain("tree");
+  TString fileset = filename.c_str();
+  fileset = fileset(0,fileset.Last('/')+1);
 
   // Get directory, add all root files
-  //tree->Add(fileset+"*.root");
+  tree->Add(fileset+"*FlatTree.root");
 
   int nEntries = tree->GetEntries();
   std::vector<float> *xptLep = NULL;
   std::vector<float> *yptLep = NULL;
   std::vector<float> *zptLep = NULL;
   float vtx[3];
+  float Enu;
   float muonDeath[3];
   float muonBirth[3];
   float muonExitPt[3];
   float muonExitKE;
   int lepPdg;
+  float rmmsKE;
 
   //tree->Print();
   //return;
 
   tree->SetBranchStatus("*", false);
+  tree->SetBranchStatus("Ev", true);
+  tree->SetBranchAddress("Ev", &Enu);
 
-  tree->SetBranchStatus("xptLep", true);
-  tree->SetBranchAddress("xptLep", &xptLep);
-  tree->SetBranchStatus("yptLep", true);
-  tree->SetBranchAddress("yptLep", &yptLep);
-  tree->SetBranchStatus("zptLep", true);
-  tree->SetBranchAddress("zptLep", &zptLep);
+  tree->SetBranchStatus("xpt", true);
+  tree->SetBranchAddress("xpt", &xptLep);
+  tree->SetBranchStatus("ypt", true);
+  tree->SetBranchAddress("ypt", &yptLep);
+  tree->SetBranchStatus("zpt", true);
+  tree->SetBranchAddress("zpt", &zptLep);
 
   tree->SetBranchStatus("vtx", true);
   tree->SetBranchAddress("vtx", vtx);
@@ -49,21 +53,59 @@ void magbend(std::string filename) {
   tree->SetBranchStatus("lepPdg", true);
   tree->SetBranchAddress("lepPdg", &lepPdg);
 
+  tree->SetBranchStatus("rmmsKE", true);
+  tree->SetBranchAddress("rmmsKE", &rmmsKE);
+
+  int muonReco;
+  tree->SetBranchStatus("muonReco", true);
+  tree->SetBranchAddress("muonReco", &muonReco);
+
+
   TH1D *LepAll = new TH1D("Lep_All", "Lep_All", 100, -200, 200);
   TH1D *LepCorrect = new TH1D("Lep_Correct", "Lep_Correct",  100, -200, 200);
   LepCorrect->SetLineColor(kBlue);
   TH1D *LepWrong = new TH1D("Lep_Wrong", "Lep_Wrong",  100, -200, 200);
   LepWrong->SetLineColor(kRed);
 
+  TString canvname = filename.c_str();
+  canvname.ReplaceAll(".root", "_signdistupd6_both_onlycent");
+  TString outputname = canvname+".root";
+  TFile *output = new TFile(outputname, "recreate");
+  // Write some of the branches out
+
+  float signed_dist;
+  float LArKE;
+  float TMSKE;
+  float Enu_out;
+  int pdg;
+
+  TTree *outtree = new TTree("mag_sum", "mag_sum");
+  outtree->Branch("signed_dist", &signed_dist);
+  outtree->Branch("LArKE", &LArKE);
+  outtree->Branch("TMSKE", &TMSKE);
+  outtree->Branch("Enu", &Enu_out);
+  outtree->Branch("pdg", &pdg);
+
   for (int i = 0; i < nEntries; ++i) {
     tree->GetEntry(i);
+
+    // Update the variables
+    signed_dist = 0;
+    LArKE = muonExitKE;
+    pdg = lepPdg;
+    Enu_out = Enu;
+    TMSKE = rmmsKE;
+
+    //if (lepPdg > 0) continue;
+    if (muonReco != 2) continue;
+
     if (abs(vtx[0]) > 300. || abs(vtx[1]) > 100. || vtx[2] < 50. || vtx[2] > 350.) continue;
 
     if (muonBirth[2] > 735. || muonDeath[2] > 1365. || 
-        muonDeath[1] > 90-50. || muonDeath[1] < -235+50. ||
+        muonDeath[1] > 87-50. || muonDeath[1] < -234+50. ||
         abs(muonDeath[0]) > 300. ||
-        muonExitKE <= 0 ||
-        abs(muonDeath[0]) > 165. || abs(muonDeath[0]) < 10. ) continue;
+        muonExitKE <= 0 ) continue; //||
+        //abs(muonDeath[0]) > 165. || abs(muonDeath[0]) < 10. ) continue;
 
     double x1 = muonExitPt[0];
     double z1 = muonExitPt[2];
@@ -74,18 +116,36 @@ void magbend(std::string filename) {
     double x3 = muonDeath[0];
     double z3 = muonDeath[2];
 
-    double signed_dist = (-1*(z2-z1)*x3 + (x2-x1)*z3 + x1*z2 - z1*x2)/sqrt((x2-x1)*(x2-x1)+(z2-z1)*(z2-z1));
+    // Check that the whole event is contained
+    int nhits = (*xptLep).size();
+    bool bad = false;
+    for (int j = 0; j < nhits; ++j) {
+      double x = (*xptLep)[j];
+      if (fabs(x) > 160) {
+        bad=true;
+        break;
+      }
+    }
+    if (bad) continue;
+
+    //signed_dist = (-1*(z2-z1)*x3 + (x2-x1)*z3 + x1*z2 - z1*x2)/sqrt((x2-x1)*(x2-x1)+(z2-z1)*(z2-z1));
+    //signed_dist = sqrt((z3-z2)*(z3-z2)+(x3-x2)*(x3-x2))/sqrt((z2-z1)*(z2-z1)+(x2-x1)*(x2-x1))*(z2-z1);
+    //signed_dist = (x3-x1)+(z3-z1)*(x2-x1)/(z2-z1);
+    // projected x position
+    double x4 = x1-(x1-x2)*(z3-z1)/(z2-z1);
+    //if (x3 > x4) signed_dist = x3-x4;
+    //else signed_dist = x4-x3;
+    signed_dist = x4-x3;
 
     LepAll->Fill(signed_dist);
     if ((lepPdg > 0 && signed_dist > 0) || (lepPdg < 0 && signed_dist < 0)) LepCorrect->Fill(signed_dist);
     else if ((lepPdg < 0 && signed_dist > 0) || (lepPdg > 0 && signed_dist < 0)) LepWrong->Fill(signed_dist);
 
+    outtree->Fill();
+
   }
 
   TCanvas *canv = new TCanvas("canv", "canv", 1024, 1024);
-  TString canvname = filename.c_str();
-  canvname.ReplaceAll(".root", "_signdist");
-  std::cout << canvname << std::endl;
   canv->Print(canvname+".pdf[");
 
   LepAll->Draw();
@@ -108,8 +168,8 @@ void magbend(std::string filename) {
   canv->Print(canvname+".pdf");
   canv->Print(canvname+".pdf]");
 
-  TString outputname = canvname+".root";
-  TFile *output = new TFile(outputname, "recreate");
+  output->cd();
+  outtree->Write();
   LepAll->Write();
   LepCorrect->Write();
   LepWrong->Write();

@@ -72,7 +72,12 @@ void makeplotsenergy_unified(std::string filename, int scinttype) {
   //gErrorIgnoreLevel = kError;
 
   TFile *file = new TFile(filename.c_str());
-  TTree *tree = (TTree*)file->Get("tree");
+  //TTree *tree = (TTree*)file->Get("tree");
+  TChain *tree = new TChain("tree");
+  TString fileset = filename.c_str();
+  fileset = fileset(0,fileset.Last('/')+1);
+  // Get directory, add all root files
+  tree->Add(fileset+"*FlatTree.root");
 
   int nEntries = tree->GetEntries();
 
@@ -119,9 +124,9 @@ void makeplotsenergy_unified(std::string filename, int scinttype) {
   tree->SetBranchStatus("rmmsKE", true);
   tree->SetBranchAddress("rmmsKE", &TMSKE);
 
-  std::vector<float> *zpt;
-  tree->SetBranchStatus("zpt", true);
-  tree->SetBranchAddress("zpt", &zpt);
+  //std::vector<float> *zpt;
+  //tree->SetBranchStatus("zpt", true);
+  //tree->SetBranchAddress("zpt", &zpt);
 
   tree->SetBranchStatus("muonReco", true);
   tree->SetBranchAddress("muonReco", &muonReco);
@@ -182,6 +187,7 @@ void makeplotsenergy_unified(std::string filename, int scinttype) {
     //if (muonReco == 0) std::cout << "AAAAAH" << std::endl;
 
     // Recalculate the scintillation length
+    /*
     muScintLen -= 24.35;
     // Calculate costheta by taking LAr vertex
     double xdist = muonExitPt[0]-vtx[0];
@@ -202,6 +208,7 @@ void makeplotsenergy_unified(std::string filename, int scinttype) {
     // Then also add in the first layer of steel that is missing
     // Also account for angle
     muScintLen += 1.5*7.85/costheta2;
+    */
 
     double dedx_total = muScintEnergy/muScintLen;
 
@@ -271,7 +278,7 @@ void makeplotsenergy_unified(std::string filename, int scinttype) {
 
   TCanvas *canv = new TCanvas("canv", "canv", 1024, 1024);
   TString canvname = filename.c_str();
-  canvname.ReplaceAll(".root", "muonKEest_xtratrackfix_uni");
+  canvname.ReplaceAll(".root", "muonKEest_notrackfixinscript_uni");
   canvname += Form("_type%i", type);
 
   std::cout << canvname << std::endl;
@@ -409,6 +416,7 @@ void makeplotsenergy_unified(std::string filename, int scinttype) {
         abs(muonDeath[0]) > 165. || abs(muonDeath[0]) < 10. ) continue;
 
     // Need to shift the scintillator length again
+    /*
     muScintLen -= 24.35;
     // Or calculate from exit point in LAr vs birth point in TMS (seems better?)
     double xdist2 = muonBirth[0]-muonExitPt[0];
@@ -421,6 +429,7 @@ void makeplotsenergy_unified(std::string filename, int scinttype) {
     // Then also add in the first layer of steel that is missing
     // Also account for angle
     muScintLen += 1.5*7.85/costheta2;
+    */
 
     double KEestimator = (muScintLen-intercept)/slope;
 
@@ -499,9 +508,29 @@ void makeplotsenergy_unified(std::string filename, int scinttype) {
   canv->Print(canvname+".pdf");
 
   canv->Print(canvname+".pdf]");
+
+  TFile *output = new TFile(canvname+".root", "recreate");
+  output->cd();
+  ScintLenvsKE->Write();
+  KEvsCrudeKE->Write();
+  KEExitvsKEEnt->Write();
+  kedist->Write();
+  GaussEst->Write();
+  ArithEst->Write();
+  fitting->Write();
+  fitting2->Write();
+  fitting3->Write();
+
+  KEestvsKE->Write();
+  ke_est->Write();
+  ke_bias->Write();
+  KEestvsScintEn->Write();
+  output->Close();
 }
 
+/*
 int main(int argc, char **argv) {
   makeplotsenergy_unified(std::string(argv[1]), std::atoi(argv[2]));
   return 0;
 }
+*/

@@ -242,7 +242,7 @@ void draw(std::string filename) {
     // Draw lines around fiducial volume
     TBox *box3 = new TBox(50, -300, 350, 300);
     box3->SetLineColor(kRed);
-    TBox *box3_TMS = new TBox(733, -300, 1300, 300);
+    TBox *box3_TMS = new TBox(730, -300, 1300, 300);
     box3_TMS->SetLineColor(kRed);
     xzTrajLep->SetTitle("xz, lepton");
     xzTrajLep->Draw("colz");
@@ -256,7 +256,7 @@ void draw(std::string filename) {
     p4->cd();
     TBox *box4 = new TBox(50, -100, 350, 100);
     box4->SetLineColor(kRed);
-    TBox *box4_TMS = new TBox(733, -260, 1300, 25);
+    TBox *box4_TMS = new TBox(730, -260, 1300, 25);
     box4_TMS->SetLineColor(kRed);
     yzTrajLep->SetTitle("yz, lepton");
     yzTrajLep->Draw("colz");

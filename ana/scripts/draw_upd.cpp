@@ -28,7 +28,7 @@ bool operator< (SpaceTime S1, SpaceTime S2) {
 }
 
 void draw_upd(std::string filename) {
-  gStyle->SetPalette(55);
+  gStyle->SetPalette(kBird);
   gErrorIgnoreLevel = kError;
 
   TFile *file = new TFile(filename.c_str());
@@ -41,14 +41,20 @@ void draw_upd(std::string filename) {
   TH2D *yzTraj = new TH2D("yz", "yz;z (cm);y (cm)", 100, -50, 1500, 100, -300, 200);
   TH2D *xzTrajLep = new TH2D("xzLep", "xzLep;z (cm);x (cm)", 100, -50, 1500, 100, -400, 400);
   TH2D *yzTrajLep = new TH2D("yzLep", "yzLep;z (cm);y (cm)", 100, -50, 1500, 100, -300, 200);
+  TH2D *xzTrajLepTMS = new TH2D("xzLepTMS", "xzLep TMS view;z (cm);x (cm)", 300, 700, 1450, 100, -400, 400);
+  TH2D *yzTrajLepTMS = new TH2D("yzLepTMS", "yzLep TMS view;z (cm);y (cm)", 300, 700, 1450, 100, -250, 100);
   xzTraj->SetMinimum(-0.001);
   xzTraj->SetMaximum(20);
   yzTraj->SetMinimum(-0.001);
   yzTraj->SetMaximum(20);
   xzTrajLep->SetMinimum(-0.001);
-  xzTrajLep->SetMaximum(20);
+  xzTrajLep->SetMaximum(10);
   yzTrajLep->SetMinimum(-0.001);
-  yzTrajLep->SetMaximum(20);
+  yzTrajLep->SetMaximum(10);
+  xzTrajLepTMS->SetMinimum(-0.001);
+  xzTrajLepTMS->SetMaximum(2);
+  yzTrajLepTMS->SetMinimum(-0.001);
+  yzTrajLepTMS->SetMaximum(2);
 
   std::vector<float> *xpt = NULL;
   std::vector<float> *ypt = NULL;
@@ -136,7 +142,7 @@ void draw_upd(std::string filename) {
   canv->SetRightMargin(canv->GetRightMargin()*1.2);
   TString canvname = filename.c_str();
   canvname.ReplaceAll(".root", "");
-  canvname+="_evtdisplay_TMSonly";
+  canvname+="_evtdisplay_TMSonly_antinu";
   canv->Print(canvname+".pdf[");
 
   // Make a TGraph in xz and yz of the vertex location
@@ -182,13 +188,15 @@ void draw_upd(std::string filename) {
   int nPass = 0;
   for (int i = 0; i < nEntries; ++i) {
     tree->GetEntry(i);
+    if (PDGnu>0) continue;
 
+    //if (i > 1000) break;
     if (i%1000==0) {
       std::cout << "Entry " << i << std::endl;
     }
 
     // Only 100 events
-    if (nPass > 1000) break;
+    //if (nPass > 1000) break;
     if (muonReco != 2) continue;
 
     if (abs(vtx[0]) > 300 || abs(vtx[1]) > 100 || vtx[2] < 50 || vtx[2] > 350) continue;
@@ -206,11 +214,19 @@ void draw_upd(std::string filename) {
     yzTraj->Reset();
     xzTrajLep->Reset();
     yzTrajLep->Reset();
+    xzTrajLepTMS->Reset();
+    yzTrajLepTMS->Reset();
 
     for (int j = 0; j < nxpoints; ++j) xzTraj->Fill((*zpt)[j], (*xpt)[j]);
     for (int j = 0; j < nypoints; ++j) yzTraj->Fill((*zpt)[j], (*ypt)[j]);
-    for (int j = 0; j < nxpointsLep; ++j) xzTrajLep->Fill((*zptLep)[j], (*xptLep)[j]);
-    for (int j = 0; j < nypointsLep; ++j) yzTrajLep->Fill((*zptLep)[j], (*yptLep)[j]);
+    for (int j = 0; j < nxpointsLep; ++j) {
+      xzTrajLep->Fill((*zptLep)[j], (*xptLep)[j]);
+      xzTrajLepTMS->Fill((*zptLep)[j], (*xptLep)[j]);
+    }
+    for (int j = 0; j < nypointsLep; ++j) {
+      yzTrajLep->Fill((*zptLep)[j], (*yptLep)[j]);
+      yzTrajLepTMS->Fill((*zptLep)[j], (*yptLep)[j]);
+    }
 
     xzVert->SetPoint(0, vtx[2], vtx[0]);
     yzVert->SetPoint(0, vtx[2], vtx[1]);
@@ -249,10 +265,10 @@ void draw_upd(std::string filename) {
     box3->SetLineStyle(kDashed);
     TBox *box3_full = new TBox(0, -350, 510, 350);
     box3_full->SetLineColor(kGreen);
-    TBox *box3_TMS = new TBox(730.8, -300, 1365, 300);
+    TBox *box3_TMS = new TBox(730, -300, 1365, 300);
     box3_TMS->SetLineColor(kRed);
     box3_TMS->SetLineStyle(kDashed);
-    TBox *box3_TMS_full = new TBox(730.8, -350, 1415, 350);
+    TBox *box3_TMS_full = new TBox(730, -350, 1415, 350);
     box3_TMS_full->SetLineColor(kGreen);
     xzTrajLep->SetTitle("xz, lepton");
     xzTrajLep->Draw("colz");
@@ -286,7 +302,6 @@ void draw_upd(std::string filename) {
     yzDeath->Draw("P,same");
     yzBirth->Draw("P,same");
     yzExit->Draw("P,same");
-
 
     p1->cd();
     xzTraj->SetTitle("xz, oth");
@@ -323,6 +338,39 @@ void draw_upd(std::string filename) {
     text->Draw("same");
 
     canv->Print(canvname+".pdf");
+
+    //canv->Clear("D");
+    p2->Clear("D");
+    p2->cd();
+    yzTrajLepTMS->SetTitle("yz, lepton, TMS only");
+    yzTrajLepTMS->Draw("colz");
+    //box4->Draw("same");
+    box4_TMS->Draw("same");
+    //box4_full->Draw("same");
+    box4_TMS_full->Draw("same");
+    yzVert->Draw("P,same");
+    yzDeath->Draw("P,same");
+    yzBirth->Draw("P,same");
+    yzExit->Draw("P,same");
+
+    p1->cd();
+    p1->Clear("D");
+    // Draw lines around fiducial volume
+    xzTrajLepTMS->SetTitle("xz, lepton, TMS only");
+    xzTrajLepTMS->Draw("colz");
+    //box3->Draw("same");
+    box3_TMS->Draw("same");
+    //box3_full->Draw("same");
+    box3_TMS_full->Draw("same");
+    xzVert->Draw("P,same");
+    xzDeath->Draw("P,same");
+    xzBirth->Draw("P,same");
+    xzExit->Draw("P,same");
+
+    //canv->cd(0);
+    //text->Draw("same");
+    canv->Print(canvname+".pdf");
+
     delete text;
     delete box3;
     delete box4;
