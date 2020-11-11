@@ -35,6 +35,27 @@ TMS_Hit::TMS_Hit(TG4HitSegment &edep_seg) :
 
 }
 
+bool TMS_Hit::NextToGap() {
+  // There are no gaps in xy view, only xz view
+  if (Bar.GetBarType() != TMS_Bar::kYBar) return false;
+
+  double pos = GetNotZ() + GetNotZw();
+  double neg = GetNotZ() - GetNotZw();
+  // Check the top
+  if ((pos > TMS_Const::TMS_Dead_Top_T[0] && pos < TMS_Const::TMS_Dead_Top_T[1]) ||
+      (neg < TMS_Const::TMS_Dead_Top_T[1] && neg > TMS_Const::TMS_Dead_Top_T[0])) return true;
+  // Check the center
+  else if ((pos > TMS_Const::TMS_Dead_Center_T[0] && pos < TMS_Const::TMS_Dead_Center_T[1]) ||
+      (neg < TMS_Const::TMS_Dead_Center_T[1] && neg > TMS_Const::TMS_Dead_Center_T[0])) return true;
+  // Check the bottom
+  else if ((pos > TMS_Const::TMS_Dead_Bottom_T[0] && pos < TMS_Const::TMS_Dead_Bottom_T[1]) ||
+      (neg < TMS_Const::TMS_Dead_Bottom_T[1] && neg > TMS_Const::TMS_Dead_Bottom_T[0])) return true;
+
+  else return false;
+
+  return false;
+}
+
 void TMS_Hit::Print() {
   std::cout << "Printing TMS hit" << std::endl;
   std::cout << "EnergyDeposit: " << EnergyDeposit << std::endl;

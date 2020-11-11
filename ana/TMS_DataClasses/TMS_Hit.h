@@ -25,17 +25,17 @@ class TMS_Hit {
     void Print();
     // The constructor for the TMS hit
     TMS_Hit(TG4HitSegment &edep_seg);
-    //TMS_Hit(double x, double y, double z, double t, double E);
-    //TMS_Hit();
-    //~TMS_Hit();
 
-    const TMS_Bar &GetBar() { return Bar; };
+    const TMS_Bar &GetBar() const { return Bar; };
     void SetBar(TMS_Bar bar) { Bar = bar; };
 
     // Sort by increasing Z
     static bool SortByZ(TMS_Hit &a, TMS_Hit &b) {
-      return ( a.GetBar().GetZ() < b.GetBar().GetZ() );
+      return ( a.GetBar().GetPlaneNumber() > b.GetBar().GetPlaneNumber() );
     }
+
+    // A helper function to determine if a hit is close to a gap
+    bool NextToGap();
 
     // Sort by increasing Z
     static bool SortByT(TMS_Hit &a, TMS_Hit &b) {
@@ -43,10 +43,10 @@ class TMS_Hit {
     }
 
     // The true particle that created this hit
-    const TMS_TrueParticle &GetTrueParticle();
+    const TMS_TrueParticle &GetTrueParticle() const;
 
     // The true hit
-    const TMS_TrueHit &GetTrueHit();
+    const TMS_TrueHit &GetTrueHit() const;
 
     // Over-riders (maybe delete in future)
     void SetTrueParticle(TMS_TrueParticle part) {TrueParticle = part;};
@@ -55,20 +55,20 @@ class TMS_Hit {
     void SetE(double E) {EnergyDeposit = E;};
     void SetT(double t) {Time = t;};
 
-    double GetE() {return EnergyDeposit;};
-    double GetT() {return Time;};
+    double GetE() const {return EnergyDeposit;};
+    double GetT() const {return Time;};
 
-    double GetX() { return Bar.GetX(); };
-    double GetY() { return Bar.GetY(); };
-    double GetZ() { return Bar.GetZ(); };
-    double GetNotZ() { return Bar.GetNotZ(); };
+    double GetX() const { return Bar.GetX(); };
+    double GetY() const { return Bar.GetY(); };
+    double GetZ() const { return Bar.GetZ(); };
+    double GetNotZ() const { return Bar.GetNotZ(); };
 
-    double GetXw() { return Bar.GetXw(); };
-    double GetYw() { return Bar.GetYw(); };
-    double GetZw() { return Bar.GetZw(); };
-    double GetNotZw() { return Bar.GetNotZw(); };
+    double GetXw() const { return Bar.GetXw(); };
+    double GetYw() const { return Bar.GetYw(); };
+    double GetZw() const { return Bar.GetZw(); };
+    double GetNotZw() const { return Bar.GetNotZw(); };
 
-    int GetPlaneNumber() {return Bar.GetPlaneNumber(); };
+    int GetPlaneNumber() const {return Bar.GetPlaneNumber(); };
 
   private:
     // The true hit (x,y,z,t) --- does not quantise hit into bars
