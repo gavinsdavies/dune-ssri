@@ -1,7 +1,7 @@
 #include "TMS_EventViewer.h"
 
 TMS_EventViewer::TMS_EventViewer() :
-DrawTrackFinding(true)
+DrawTrackFinding(false)
 {
 
   nDraws = 0;

@@ -122,6 +122,8 @@ class TMS_TrackFinder {
     // Run a best first search
     void BestFirstSearch(const std::vector<TMS_Hit> &TMS_Hits);
 
+    void HoughTransform(const std::vector<TMS_Hit> &TMS_Hits);
+
     // Clean up the hits, removing duplicates and zero entries
     std::vector<TMS_Hit> CleanHits(const std::vector<TMS_Hit> &TMS_Hits);
     // Get hits projected onto xz or yz

@@ -21,7 +21,7 @@ TMS_TrackFinder::TMS_TrackFinder() :
   InterceptWidth((InterceptMax-InterceptMin)/nIntercept),
   SlopeWidth((SlopeMax-SlopeMin)/nSlope),
   zMaxHough((TMS_Const::TMS_Trans_Start+TMS_Const::TMS_Det_Offset[2])*10), // Max z for us to do Hough in, here choose transition layer
-  nMinHits(20), // Minimum number of hits required to run track finding
+  nMinHits(10), // Minimum number of hits required to run track finding
   nMaxMerges(1), // Maximum number of merges for one hit
   // Initialise Highest cost to be very large
   HighestCost(999),
@@ -59,7 +59,6 @@ TMS_TrackFinder::TMS_TrackFinder() :
 // The generic track finder
 void TMS_TrackFinder::FindTracks(TMS_Event &event) {
   std::cout << "Event: " << event.GetEventNumber() << std::endl;
-  //
 
   // Reset the candidate vector
   Candidates.clear();
@@ -69,25 +68,29 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
   HoughLines_zx.clear();
 
   // Get the raw unmerged and untracked hits
-  //RawHits = event.GetHits();
-
   std::vector<TMS_Hit> TMS_Hits = event.GetHits();
-  // Require 20 hits
+
+  // Require 10 hits
   if (TMS_Hits.size() < nMinHits) return;
-  BestFirstSearch(TMS_Hits);
 
-  // Maybe split up into zx and zy hits here
+  // A star
+  //BestFirstSearch(TMS_Hits);
 
-  // Multi-thread this?
-  /*
-  for (int i = 0; i < nTheta; ++i) {
-    for (int j = 0; j < nRho; ++j) {
-      Accumulator_zy[i][j] = 0;
-      Accumulator_zx[i][j] = 0;
-    }
-  }
-  */
+  // Hough
+  HoughTransform(TMS_Hits);
 
+}
+
+void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
+
+  // First remove duplicate hits
+  //std::vector<TMS_Hit> TMS_Hits_Cleaned = CleanHits(TMS_Hits);
+
+  // Now split in yz and xz hits
+  //std::vector<TMS_Hit> TMS_xz = ProjectHits(TMS_Hits_Cleaned, TMS_Bar::kYBar);
+  //std::vector<TMS_Hit> TMS_yz = ProjectHits(TMS_Hits_Cleaned, TMS_Bar::kXBar);
+
+  // Reset the accumulators
   for (int i = 0; i < nSlope; ++i) {
     for (int j = 0; j < nIntercept; ++j) {
       Accumulator_zy[i][j] = 0;
@@ -96,11 +99,9 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
   }
 
   // First run a simple Hough Transform
-  for (std::vector<TMS_Hit>::iterator it = TMS_Hits.begin(); it!=TMS_Hits.end(); ++it) {
+  for (std::vector<TMS_Hit>::const_iterator it = TMS_Hits.begin(); it!=TMS_Hits.end(); ++it) {
     TMS_Hit hit = (*it);
     TMS_Bar bar = hit.GetBar();
-    //double EnergyDeposit = hit.GetE();
-    //double Time = hit.GetT();
     double xhit = bar.GetX();
     double yhit = bar.GetY();
     double zhit = bar.GetZ();
@@ -112,31 +113,7 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
     Accumulate(xhit, yhit, zhit, Type);
   }
 
-  // Get the maximum in the Accumulator
-  /*
-  double max_zy = 0;
-  double max_zx = 0;
-  int max_zy_theta_bin = 0;
-  int max_zy_rho_bin = 0;
-  int max_zx_theta_bin = 0;
-  int max_zx_rho_bin = 0;
-  //for (int i = 0; i < nTheta; ++i) {
-    //for (int j = 0; j < nRho; ++j) {
-  for (int i = 0; i < nSlope; ++i) {
-    for (int j = 0; j < nIntercept; ++j) {
-      if (Accumulator_zy[i][j] > max_zy) {
-        max_zy = Accumulator_zy[i][j];
-        max_zy_theta_bin = i;
-        max_zy_rho_bin = j;
-      }
-      if (Accumulator_zx[i][j] > max_zx) {
-        max_zx = Accumulator_zx[i][j];
-        max_zx_theta_bin = i;
-        max_zx_rho_bin = j;
-      }
-    }
-  }
-  */
+  // Find the maximum of the accumulator and which m,c bin the maximum occurs in
   double max_zy = 0;
   double max_zx = 0;
   int max_zy_slope_bin = 0;
@@ -157,23 +134,6 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
       }
     }
   }
-
-  // Transform back to a y=mx+c equivalent
-  /*
-  double ThetaOpt_zx = ThetaMin+max_zx_theta_bin*2*M_PI/nTheta;
-  double RhoOpt_zx = RhoMin+max_zx_rho_bin*(RhoMax-RhoMin)/nRho;
-
-  double ThetaOpt_zy = ThetaMin+max_zy_theta_bin*2*M_PI/nTheta;
-  double RhoOpt_zy = RhoMin+max_zy_rho_bin*(RhoMax-RhoMin)/nRho;
-
-  HoughLine_zy->SetParameter(0, tan(ThetaOpt_zy));
-  HoughLine_zy->SetParameter(1, cos(ThetaOpt_zy));
-  HoughLine_zy->SetParameter(2, RhoOpt_zy);
-
-  HoughLine_zx->SetParameter(0, tan(ThetaOpt_zx));
-  HoughLine_zx->SetParameter(1, cos(ThetaOpt_zx));
-  HoughLine_zx->SetParameter(2, RhoOpt_zx);
-  */
 
   double InterceptOpt_zx = InterceptMin+max_zx_inter_bin*(InterceptMax-InterceptMin)/nIntercept;
   double SlopeOpt_zx = SlopeMin+max_zx_slope_bin*(SlopeMax-SlopeMin)/nSlope;
@@ -229,8 +189,6 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
     }
   }
 
-  //MergeAdjacent(Candidates, HitPool);
-
   // Loop over the candidates, and add new adjacent candidates to the end
   size_t CandSize = Candidates.size();
   for (size_t i = 0; i < CandSize; ++i) {
@@ -263,13 +221,6 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
       // Now check the distance in x or y depending on bar
       double PoolPos = PoolBar.GetNotZ();
       double PoolPosWidth = PoolBar.GetNotZw();
-
-      /*
-      if (CandidateBarType == TMS_Bar::kYBar) {
-        std::cout << PoolPos << "+/-" << PoolPosWidth << std::endl;
-        std::cout << PoolPlaneNumber << std::endl;
-      }
-      */
 
       // Ensure adjacent or matching in z
       // Make an exception for the airgaps; allow any range in z
@@ -318,7 +269,6 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
       }
 
       if (Merge) {
-        //if (CandidateBarType == TMS_Bar::kYBar) std::cout << "  Merging " << PoolPos << "+/-" << PoolPosWidth << std::endl;
         Candidates.push_back(std::move(PoolHit));
         // Increment the number of candidates in the vector
         CandSize++;
@@ -427,17 +377,7 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
   HoughLine_zx_2->SetLineColor(kWhite);
   HoughLine_zx_2->SetParameter(0, InterceptOpt_zx_2);
   HoughLine_zx_2->SetParameter(1, SlopeOpt_zx_2);
-  */
 
-  /*
-     std::cout << InterceptOpt_zx << " " << InterceptOpt_zx_2 << std::endl;
-     std::cout << SlopeOpt_zx << " " << SlopeOpt_zx_2 << std::endl;
-
-     std::cout << InterceptOpt_zy << " " << InterceptOpt_zy_2 << std::endl;
-     std::cout << SlopeOpt_zy << " " << SlopeOpt_zy_2 << std::endl;
-     */
-
-  /*
   // Get the hits that intersect the second hough line
   // First make a second candidate vector
   std::vector<TMS_Hit> Candidates2;
@@ -607,12 +547,9 @@ nMerges++;
 */
 
 // Find the bin for the accumulator
-//int TMS_TrackFinder::FindBin(double rho) {
 int TMS_TrackFinder::FindBin(double c) {
   // Since we're using uniform binning no need for binary search or similar
-  //int bin = (rho-RhoMin)/RhoWidth;
   int bin = (c-InterceptMin)/InterceptWidth;
-  //std::cout << bin << " " << rho << " " << InterceptMin << " " << InterceptWidth << std::endl;
   return bin;
 }
 
@@ -631,25 +568,16 @@ void TMS_TrackFinder::Accumulate(double xhit, double yhit, double zhit, TMS_Bar:
 
   // Could probably multi-thread this operation
   // Now do the Hough
-  //for (int i = 0; i < nTheta; ++i) {
   for (int i = 0; i < nSlope; ++i) {
-    //float theta = ThetaMin+i*ThetaWidth;
     double m = SlopeMin+i*SlopeWidth;
 
     // Now calculate rho
-    //float rho = (yvar-zhit*tan(theta))*cos(theta);
     double c = yvar-m*zhit;
 
     // Find which rho bin this corresponds to
-    //int rho_bin = FindBin(rho);
     int c_bin = FindBin(c);
-    //std::cout << c << " " << c_bin << std::endl;
-    //if (c > InterceptMax || c < InterceptMin) {
-    //std::cout << "Found c greater or less than maxium/minimum" << std::endl;
-    //}
 
     // Fill the accumulator
-    //Accumulator[i][rho_bin]++;
     Accumulator[i][c_bin]++;
   }
 }
@@ -666,16 +594,8 @@ TH2D *TMS_TrackFinder::AccumulatorToTH2D(bool zy) {
     Name = "TMS_TrackFinder_Accumulator_zx";
     Accumulator = Accumulator_zx;
   }
-  //TH2D *accumulator = new TH2D(Name.c_str(), (Name+";#theta (rad.);#rho (mm)").c_str(), nTheta, ThetaMin, ThetaMax, nRho, RhoMin, RhoMax);
   TH2D *accumulator = new TH2D(Name.c_str(), (Name+";m (slope);c (intercept) (mm)").c_str(), nSlope, SlopeMin, SlopeMax, nIntercept, InterceptMin, InterceptMax);
 
-  /*
-     for (int i = 0; i < nTheta; ++i) {
-     for (int j = 0; j < nRho; ++j) {
-     accumulator->SetBinContent(i+1, j+1, Accumulator[i][j]);
-     }
-     }
-     */
   for (int i = 0; i < nSlope; ++i) {
     for (int j = 0; j < nIntercept; ++j) {
       accumulator->SetBinContent(i+1, j+1, Accumulator[i][j]);
@@ -686,7 +606,6 @@ TH2D *TMS_TrackFinder::AccumulatorToTH2D(bool zy) {
   accumulator->GetMaximumBin(maxx, maxy, maxz);
   double maxtheta = accumulator->GetXaxis()->GetBinCenter(maxx);
   double maxrho = accumulator->GetYaxis()->GetBinCenter(maxy);
-  //accumulator->SetTitle(Form("#splitline{%s}{#theta_{max}=%.2f #rho_{max}=%.2f}", accumulator->GetTitle(), maxtheta, maxrho));
   accumulator->SetTitle(Form("#splitline{%s}{m_{max}=%.2f c_{max}=%.2f}", accumulator->GetTitle(), maxtheta, maxrho));
 
   // Set the minimum (easier to draw)
@@ -719,144 +638,6 @@ void TMS_TrackFinder::BestFirstSearch(const std::vector<TMS_Hit> &TMS_Hits) {
   // Copy over to the candidates
   for (auto i : AStarHits_yz) Candidates.push_back(std::move(i));
   for (auto i : AStarHits_xz) Candidates.push_back(std::move(i));
-
-
-  // Can now make graphs to use
-
-  // Starting point is the first vector entry in each (lowest z)
-
-  // End point is the last vector entry in each (highest z)
-
-  // First build the graph
-  // Allow for moving up/down, left/right and all diagonals
-  // Moving one plane to the right incurs no cost
-  // Moving one plane to the left incurs one cost
-  // Moving one bar up/down incurs one cost
-  // Moving diagonally incurs three cost (to prefer up/down followed my left/right)
-  //
-  // Then also explore skipping one? i.e. connect over missing 
-  // Probably don't allow skipping a z layer, but allow skipping one/two/three notZ layers
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  // First implementation of best-first search
-  // Make connection costs for each of the hits
-  /*
-     std::vector<std::vector<ThreePair> > PositionCost;
-     for (std::vector<TMS_Hit>::iterator it = TMS_yz.begin(); it != TMS_yz.end(); ++it) {
-     TMS_Hit hit = (*it);
-  //double z = hit.GetZ();
-  double y = hit.GetNotZ();
-  int planeno = hit.GetPlaneNumber();
-
-  // Make the vector of costs for this hit
-  std::vector<ThreePair> ThisCost;
-  //std::cout << "Planenumber: " << planeno << std::endl;
-  // Calculate the cost for all hits
-  for (std::vector<TMS_Hit>::iterator jt = TMS_yz.begin(); jt != TMS_yz.end(); ++jt) {
-  TMS_Hit comp = (*jt);
-  // The difference in plane number
-  int DeltaPlane = comp.GetPlaneNumber()-planeno;
-  // Units of mm
-  double DeltaY = fabs(comp.GetNotZ()-y);
-  int DeltaY_Trunc = int(DeltaY/comp.GetNotZw());
-  // Check only adjacent planes in z and y
-  if (abs(DeltaPlane) > 2) continue;
-  // Check distance in y isn't crazy (4 times the bar width of 4 cm)
-  if (DeltaY_Trunc > 4) continue;
-
-  std::cout << "y: " << y << std::endl;
-  std::cout << "compy: " << comp.GetNotZ() << std::endl;
-  std::cout << "DeltaY_Trunc: " << DeltaY_Trunc << std::endl;
-
-  double cost = HighestCost;
-  // Moving forwads
-  if (DeltaPlane == 2 && DeltaY_Trunc == 0) cost = 1;
-  // Moving upwards/downwards only
-  else if (DeltaPlane == 0 && abs(DeltaY_Trunc) == 1) cost = 1;
-  // Moving backwards only
-  else if (DeltaPlane == -2 && DeltaY_Trunc == 0) cost = 1;
-  // Moving diagonally (discourage this move over upward/downward + backward/forward
-  else if (abs(DeltaPlane) == 2 && abs(DeltaY_Trunc) == 1) cost = 3;
-  // Moving upwards/downwards by 2-4 steps: discourage vs taking 2-4 one-steps
-  else if (DeltaPlane == 0 && abs(DeltaY_Trunc) > 1) cost = 1+abs(DeltaY_Trunc)*2;
-  // Moving diagonally by N steps
-  else if (abs(DeltaPlane) == 2 && abs(DeltaY_Trunc) > 1) cost = 1+abs(DeltaY_Trunc)*3;
-
-  // If it's the same hit choose to include it, or merge these before? eek
-  //else if (DeltaPlane == 0 && DeltaY_Trunc == 0) cost = 0;
-
-  //std::cout << "   move to plane: " << comp.GetPlaneNumber() << " notz: " << comp.GetNotZ() << " cost: " << cost << std::endl;
-
-  // Make the pair
-  ThisCost.push_back(ThreePair(comp.GetPlaneNumber(), comp.GetNotZ(), cost));
-  }
-
-  PositionCost.push_back(ThisCost);
-  }
-
-  // Should now have our great vector of costs for each of the hits
-  // Start the search
-  //int StartPlane = TMS_yz.front().GetPlaneNumber();
-  int FinishPlane = TMS_yz.back().GetPlaneNumber();
-  double FinishNotZ = TMS_yz.back().GetNotZ();
-
-  std::priority_queue<ThreePair, std::vector<ThreePair> > pq;
-  pq.push(ThreePair(TMS_yz.front().GetPlaneNumber(), TMS_yz.front().GetNotZ(), 0));
-
-  // Remember if we've visited each node
-  std::vector<bool> Visited;
-  for (size_t i = 0; i < PositionCost.size(); ++i) Visited.push_back(false);
-  Visited[0] = true;
-
-  while (!pq.empty()) {
-
-  ThreePair bla = pq.top();
-  int zplane = bla.xplane;
-  double notz = bla.y;
-  //std::cout << zplane << ", " << notz << ", " << bla.cost << std::endl;
-  pq.pop();
-
-  if (zplane == FinishPlane && notz == FinishNotZ) break;
-
-  // Now loop over each of the connections
-  int HitNumber = 0; 
-  for (std::vector<std::vector<ThreePair> >::iterator it = PositionCost.begin(); it != PositionCost.end(); ++it, HitNumber++) {
-    for (std::vector<ThreePair>::iterator jt = (*it).begin(); jt != (*it).end(); ++jt) {
-      ThreePair curr = (*jt);
-      //curr.Print();
-      if (!Visited[HitNumber]) {
-        pq.push(curr);
-      }
-    }
-    // Remember that this has been visited already
-    Visited[HitNumber] = true;
-  }
-
-}
-*/
-
-/*
-   std::cout << "***********" << std::endl;
-   for (std::vector<TMS_Hit>::iterator it = TMS_yz.begin(); it != TMS_yz.end(); ++it) {
-   std::cout << (*it).GetBar().GetZ() << std::endl;
-   }
-   */
-
 }
 
 // Remove duplicate hits
@@ -1033,30 +814,9 @@ std::vector<TMS_Hit> TMS_TrackFinder::RunAstar(const std::vector<TMS_Hit> &TMS_x
       // Remember how much it is for this node to connect to this neighbour
       (*it).Neighbours[Pointer] = GroundCost;
     }
-    /*
-       if (IsNextToGap) {
-       std::cout << "**" << std::endl;
-       (*it).Print();
-       std::cout << " is next to gap has neighbours: " << std::endl;
-       for (auto i : (*it).Neighbours) {
-       i.first->Print();
-       std::cout << "groundcost: " << i.second << std::endl;
-       std::cout << "totalcost: " << i.first->HeuristicCost+i.second << std::endl;
-       }
-       }
-       */
   }
 
-  /*
-  // Remove hit if it only has one neighbour
-  for (std::vector<aNode>::iterator it = Nodes.begin(); it != Nodes.end(); ) {
-    if ((*it).Neighbours.size() < 2) {
-      it = Nodes.erase(it);
-    } else {
-      it++;
-    }
-  }
-  */
+  // Remove hits that only have one neighbour?
 
   // Keep a map of the cost so far for reaching an aNode
   std::unordered_map<int, double> cost_so_far;

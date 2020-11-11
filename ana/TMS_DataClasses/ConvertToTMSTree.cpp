@@ -19,15 +19,8 @@
 // Reconstructor
 #include "TMS_Reco.h"
 
-/*
-#include "TMS_Constants.h"
-#include "TMS_Hit.h"
-#include "TMS_Bar.h"
-#include "TMS_TrueHit.h"
-#include "TMS_TrueParticle.h"
-*/
 
-bool dumpSSRITree(std::string filename, std::string output_filename) {
+bool ConvertToTMSTree(std::string filename, std::string output_filename) {
   std::cout << "Got " << filename << ", writing to " << output_filename << std::endl;
 
   // The input file
@@ -54,10 +47,10 @@ bool dumpSSRITree(std::string filename, std::string output_filename) {
   Timer.Start();
 
   for (int i = 0; i < N_entries; ++i) {
+    if (i > 100) break;
     events->GetEntry(i);
     gRoo->GetEntry(i);
 
-    if (i > 150) break;
     if (i % (N_entries/10) == 0) {
       std::cout << "Processed " << i << "/" << N_entries << " (" << double(i)*100./N_entries << "%)" << std::endl;
     }
@@ -99,7 +92,7 @@ int main(int argc, char **argv) {
     OutputFile = std::string(argv[2]);
   }
 
-  bool ok = dumpSSRITree(EDepSimFile, OutputFile);
+  bool ok = ConvertToTMSTree(EDepSimFile, OutputFile);
   if (ok) return 0;
   else return -1;
 }
