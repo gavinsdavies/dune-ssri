@@ -66,6 +66,7 @@ namespace BetheBloch_Utils {
 
 };
 
+
 // Generic material class
 // Only support iron and polystyrene for now
 // Taken right from LBL and PDG
@@ -73,7 +74,43 @@ class Material {
 
   public:
 
-    enum MaterialType { kPolyStyrene, kIron, kUnknown };
+    enum MaterialType { kPolyStyrene, kIron, kGraphite, kGArgon, kLArgon, kWater, kUnknown };
+
+    std::string MaterialName() {
+
+      switch (fMaterialType) {
+        case kPolyStyrene:
+          return "Polystyrene";
+          break;
+
+        case kIron:
+          return "Iron";
+          break;
+
+        case kGraphite:
+          return "Graphite";
+          break;
+
+        case kGArgon:
+          return "GAr";
+          break;
+
+        case kLArgon:
+          return "LAr";
+          break;
+
+        case kWater:
+          return "H_{2}O";
+          break;
+
+
+        default:
+          return "unknown";
+          break;
+      }
+
+      return "unknown";
+    }
 
     Material(MaterialType type) {
       fMaterialType = type;
@@ -91,6 +128,7 @@ class Material {
           Cbar = 3.2999;
           d0 = 0.00;
           break;
+
           // Iron: https://pdg.lbl.gov/2020/AtomicNuclearProperties/MUE/muE_iron_Fe.pdf
         case kIron:
           Z_A = 26/55.845;
@@ -103,6 +141,64 @@ class Material {
           Cbar = 4.2911;
           d0 = 0.12;
           break;
+
+          // Graphite
+          // https://pdg.lbl.gov/2020/AtomicNuclearProperties/MUE/muE_carbon_graphite_C.pdf
+        case kGraphite:
+          Z_A = 6/12.0107;
+          rho = 2.210;
+          I = 78.0;
+          a = 0.20762;
+          m = 2.9532;
+          x0 = -0.0090;
+          x1 = 2.4817;
+          Cbar = 2.8926;
+          d0 = 0.14;
+          break;
+
+          // Gaseous Argon
+          // https://pdg.lbl.gov/2020/AtomicNuclearProperties/MUE/muE_argon_gas_Ar.pdf
+        case kGArgon:
+          Z_A = 18/39.948;
+          rho = 1.662E-3;
+          I = 188;
+          a = 0.19714;
+          m = 2.9618;
+          x0 = 1.7635;
+          x1 = 4.4855;
+          Cbar = 11.9480;
+          d0 = 0.00;
+          break;
+
+          // Liquid Argon
+          // https://pdg.lbl.gov/2020/AtomicNuclearProperties/MUE/muE_liquid_argon.pdf
+        case kLArgon:
+          Z_A = 18/39.948;
+          rho = 1.396;
+          I = 188;
+          a = 0.19559;
+          m = 3.0000;
+          x0 = 0.2000;
+          x1 = 3.0000;
+          Cbar = 5.2146;
+          d0 = 0.00;
+          break;
+
+          // Liquid water
+          // https://pdg.lbl.gov/2020/AtomicNuclearProperties/MUE/muE_water_liquid.pdf
+        case kWater:
+          Z_A = 0.55509;
+          rho = 1.000;
+          I = 79.7;
+          a = 0.09116;
+          m = 3.4773;
+          x0 = 0.2400;
+          x1 = 2.8004;
+          Cbar = 3.5017;
+          d0 = 0.00;
+          break;
+
+
         default:
           std::cerr << "Material not supported" << std::endl;
           throw;
@@ -125,6 +221,8 @@ class Material {
     double d0;
 
     MaterialType fMaterialType;
+
+
 };
 
 class BetheBloch_Calculator {
@@ -135,7 +233,7 @@ class BetheBloch_Calculator {
 
     BetheBloch_Calculator(Material::MaterialType type) :
       fMaterial(type) {
-    };
+      };
 
     // Density correction factor a la PDG (Sternheimer) MeV
     // eq 34.7 pdg
@@ -211,7 +309,7 @@ class BetheBloch_Calculator {
       // Set some thickness
       //const double thick = 1./7.85; // thickness in g/cm2 -> try 1cm with 7.85 g/cm3 density
       //const double thick = 7.85;
-      const double thick = 1.0;
+      const double thick = fMaterial.rho * 1; // 1 cm of material
       const double j = 0.200; // from pdg
 
       double eps = (BetheBloch_Utils::K/2)*Z_A*thick/beta_2; // convenient

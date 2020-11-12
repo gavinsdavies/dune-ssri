@@ -1,50 +1,61 @@
 #include <iostream>
 
-#include "TGraph.h"
-#include "TCanvas.h"
-
 #include "BetheBloch.h"
 
-// Simple example showing Bethe-Bloch ionisation for iron and polystyrene
-// Add your favourite element in the header under fMaterial
+#include "TLegend.h"
+#include "TGraph.h"
+#include "TCanvas.h"
+#include "TAxis.h"
+
 int main() {
-  // Number of calculations we wish to make
   const int npoints = 10000;
-  // Graphs that we draw to
-  TGraph *graph = new TGraph(npoints);
-  TGraph *graph2 = new TGraph(npoints);
 
-  // The calculator for Iron
-  BetheBloch_Calculator iron(Material::kIron);
-  // The calculator for Polystyrene
-  BetheBloch_Calculator poly(Material::kPolyStyrene);
+  std::vector<Material::MaterialType> Materials;
+  Materials.push_back(Material::kIron);
+  Materials.push_back(Material::kPolyStyrene);
+  Materials.push_back(Material::kGraphite);
+  Materials.push_back(Material::kGArgon);
+  Materials.push_back(Material::kLArgon);
+  Materials.push_back(Material::kWater);
+  int nMaterials = Materials.size();
 
-  // What energy we want to start drawing at
+  std::vector<TGraph*> graphs;
+  for (int i = 0; i < nMaterials; ++i) graphs.push_back(new TGraph(npoints));
+
+  // Just need one calculator which we change the material of
+  BetheBloch_Calculator generic(Material::kIron);
+
   double minimum = BetheBloch_Utils::Mm*1.2;
   for (int i = 0; i < npoints; ++i) {
     double energy = minimum+(i*0.5);
-    // Calculate the dEdx for polystyrene
-    double dedx = poly.Calc_dEdx(energy);
-    // Calculate the dEdx for iron
-    double dedx2 = iron.Calc_dEdx(energy);
-    graph->SetPoint(i, energy, dedx);
-    graph2->SetPoint(i, energy, dedx2);
+    for (int j = 0; j < nMaterials; ++j) {
+      generic.fMaterial = Materials[j];
+      double dedx = generic.Calc_dEdx(energy);
+      graphs[j]->SetPoint(i, energy, dedx);
+    }
   }
+
   TCanvas *canv = new TCanvas("canv", "canv", 1024, 1024);
-  canv->Print("dedx.pdf[");
-
-  // Draw
-  graph->Draw("AL");
-  graph->SetLineColor(kRed);
+  for (int i = 0; i < nMaterials; ++i) {
+    generic.fMaterial = Materials[i];
+    graphs[i]->SetTitle(generic.fMaterial.MaterialName().c_str());
+    graphs[i]->SetLineColor(i+1);
+    if (i == 0) {
+      graphs[i]->Draw();
+      graphs[i]->GetXaxis()->SetTitle("E_{#mu} (MeV)");
+      graphs[i]->GetYaxis()->SetTitle("<dE/dX> (MeV/gr/cm^{2})");
+    }
+    else graphs[i]->Draw("same");
+  }
+  TLegend *leg = new TLegend(0.2, 0.6, 0.9, 0.9);
+  for (int i = 0; i < nMaterials; ++i) {
+    leg->AddEntry(graphs[i], graphs[i]->GetTitle(), "l");
+  }
+  leg->SetNColumns(2);
+  leg->SetLineStyle(0);
+  leg->SetBorderSize(0);
+  leg->SetFillStyle(0);
+  leg->Draw("same");
   canv->Print("dedx.pdf");
 
-  graph2->Draw("AL");
-  graph2->SetLineColor(kGreen);
-  canv->Print("dedx.pdf");
-
-  graph->Draw();
-  graph2->Draw("same");
-  canv->Print("dedx.pdf");
-
-  canv->Print("dedx.pdf]");
 }
