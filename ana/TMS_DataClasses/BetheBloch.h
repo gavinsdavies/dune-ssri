@@ -1,12 +1,8 @@
-#include <iostream>
 #include <cmath>
-#include <assert.h>
-#include "TGraph.h"
-#include "TCanvas.h"
 
 // Almost entirely from the PDG
 // and pdg.lbl.gov/AtomicNuclearProperties
-namespace BetheBloch {
+namespace BetheBloch_Utils {
 
   // Fine structure
   const double a = 1/137.035999139;
@@ -57,7 +53,7 @@ namespace BetheBloch {
   }
 
   // Maximum energy transfer to electron from incoming muon (causing ionisation), in MeV
-  double MaximumEnergyTransfer(double E) {
+  inline double MaximumEnergyTransfer(double E) {
     double me = Me;
     double me_2 = Me_2;
     double mm = Mm;
@@ -68,100 +64,168 @@ namespace BetheBloch {
     return 2 * me * p_2 / ( me_2 + mm_2 + 2*me*E );
   }
 
-  // Density correction factor a la PDG (Sternheimer)
-  // eq 34.7 pdg
-  // MeV
-  double DensityCorrectionFactor(double E) {
-    /*
-       const double X0 = 0.10;
-       const double X1 = 3;
-       const double a = 0.127;
-       const double m = 3.29;
-       const double C = -4.62;
-       */
-    // Update from muons in Iron from pdg
-    const double X0 = -0.0012;
-    const double X1 = 3.1531;
-    const double a = 0.14680;
-    const double m = 3.29;
-    const double Cbar = 4.2911;
-    const double d0 = 0.12;
+};
 
-    const double beta = RelativisticBeta(Mm, E);
-    const double gamma = RelativisticGamma(Mm, E);
-    const double X = log10( beta*gamma );
+// Generic material class
+// Only support iron and polystyrene for now
+// Taken right from LBL and PDG
+class Material {
 
-    if (X0 < X && X < X1) {
-      return ( Stern2ln10 * X - Cbar + a * pow(X1-X,m) );
+  public:
+
+    enum MaterialType { kPolyStyrene, kIron, kUnknown };
+
+    Material(MaterialType type) {
+      fMaterialType = type;
+
+      switch (type) {
+        // Polystyrene: https://pdg.lbl.gov/2020/AtomicNuclearProperties/MUE/muE_polystyrene.pdf
+        case kPolyStyrene:
+          Z_A = 0.53768;
+          rho = 1.060;
+          I = 68.7;
+          a = 0.16454;
+          m = 3.2224;
+          x0 = 0.1647;
+          x1 = 2.5031;
+          Cbar = 3.2999;
+          d0 = 0.00;
+          break;
+          // Iron: https://pdg.lbl.gov/2020/AtomicNuclearProperties/MUE/muE_iron_Fe.pdf
+        case kIron:
+          Z_A = 26/55.845;
+          rho = 7.874;
+          I = 286.0;
+          a = 0.14680;
+          m = 2.9632;
+          x0 = -0.0012;
+          x1 = 3.1531;
+          Cbar = 4.2911;
+          d0 = 0.12;
+          break;
+        default:
+          std::cerr << "Material not supported" << std::endl;
+          throw;
+      }
     }
-    if (X > X1) {
-      return ( Stern2ln10 * X - Cbar );
+
+    // Z/A
+    double Z_A;
+    // Ionisation
+    double I; // eV
+    // density
+    double rho; // g/cm3
+
+    // Numbers for density correction factors to Bethe
+    double x0;
+    double x1;
+    double a;
+    double m;
+    double Cbar;
+    double d0;
+
+    MaterialType fMaterialType;
+};
+
+class BetheBloch_Calculator {
+
+  public:
+
+    BetheBloch_Calculator() = delete;
+
+    BetheBloch_Calculator(Material::MaterialType type) :
+      fMaterial(type) {
+    };
+
+    // Density correction factor a la PDG (Sternheimer) MeV
+    // eq 34.7 pdg
+    inline double DensityCorrectionFactor(double E) {
+      // Update from muons in Iron from pdg
+      const double x0 = fMaterial.x0;
+      const double x1 = fMaterial.x1;
+      const double a = fMaterial.a;
+      const double m = fMaterial.m;
+      const double Cbar = fMaterial.Cbar;
+      const double d0 = fMaterial.d0;
+
+      const double beta = BetheBloch_Utils::RelativisticBeta(BetheBloch_Utils::Mm, E);
+      const double gamma = BetheBloch_Utils::RelativisticGamma(BetheBloch_Utils::Mm, E);
+      const double X = log10( beta*gamma );
+
+      if (x0 < X && X < x1) {
+        return ( BetheBloch_Utils::Stern2ln10 * X - Cbar + a * pow(x1-X,m) );
+      }
+      if (X > x1) {
+        return ( BetheBloch_Utils::Stern2ln10 * X - Cbar );
+      }
+
+      // Conductor
+      if (X < x0) {
+        return d0*pow(10,2*(X-x0));
+      }
+
+      return 0;
     }
 
-    // Conductor
-    if (X < X0) {
-      return d0*pow(10,2*(X-X0));
+    // Calculate the ionsiation for muons in Bethe Bloch in MeV/(gr/cm2)
+    inline double Calc_dEdx(double E) {
+      // z over A
+      double Z_A = fMaterial.Z_A;
+      double beta = BetheBloch_Utils::RelativisticBeta(BetheBloch_Utils::Mm, E);
+      double beta_2 = beta*beta;
+      double gamma = BetheBloch_Utils::RelativisticGamma(BetheBloch_Utils::Mm, E);
+      double gamma_2 = gamma*gamma;
+      // Ionisation from PDG
+      double I = fMaterial.I * 1E-6; //286E-6; // 286 eV -> 286E-6 in MeV
+      double I_2 = I*I;
+      double Em = BetheBloch_Utils::MaximumEnergyTransfer(E);
+      double Em_2 = Em*Em;
+      double E_2 = E*E;
+      double d = DensityCorrectionFactor(E);
+
+      // K = 4pi NA re2 me c2
+      double de_dx = BetheBloch_Utils::K * Z_A * (1/beta_2) *
+        (0.5*log( 2*BetheBloch_Utils::Me*beta_2*gamma_2*Em/I_2 ) - beta_2 - 0.5*d );
+
+      // Correction term in Groom not present in PDG
+      //double de_dx2 = 10* a_2 * 2*pi * Na * Le_2 * Z_A * (Me / beta_2) *
+      //( log( 2*Me*beta_2*gamma_2*Em/I_2 ) - 2*beta_2 + 0.25*(Em_2/E_2) - d );
+
+      return de_dx; // in MeV/(gr/cm^2)
     }
 
-    return 0;
-  }
+    // Calculate the ionsiation for muons in Bethe Bloch MeV/(gr/cm2)
+    // eq 34.12 pdg
+    inline double Calc_dEdx_mostprob(double E) {
+      // z over A
+      double Z_A = fMaterial.Z_A;
+      double beta = BetheBloch_Utils::RelativisticBeta(BetheBloch_Utils::Mm, E);
+      double beta_2 = beta*beta;
+      double gamma = BetheBloch_Utils::RelativisticGamma(BetheBloch_Utils::Mm, E);
+      double gamma_2 = gamma*gamma;
+      // Ionisation from PDG
+      double I = fMaterial.I*1E-6; //286E-6; // 286 eV -> 286E-6 in MeV
+      double E_2 = E*E;
+      double d = DensityCorrectionFactor(E);
 
-  // Calculate the ionsiation for muons in Bethe Bloch
-  // MeV/(gr/cm2)
-  double Calc_dEdx(double E) {
-    // z over A
-    double Z_A = 26./56;
-    double beta = RelativisticBeta(Mm, E);
-    double beta_2 = beta*beta;
-    double gamma = RelativisticGamma(Mm, E);
-    double gamma_2 = gamma*gamma;
-    // Ionisation from PDG
-    double I = 286E-6; // 286 eV -> 286E-6 in MeV
-    double I_2 = I*I;
-    double Em = MaximumEnergyTransfer(E);
-    double Em_2 = Em*Em;
-    double E_2 = E*E;
-    double d = DensityCorrectionFactor(E);
+      // Set some thickness
+      //const double thick = 1./7.85; // thickness in g/cm2 -> try 1cm with 7.85 g/cm3 density
+      //const double thick = 7.85;
+      const double thick = 1.0;
+      const double j = 0.200; // from pdg
 
-    // K = 4pi NA re2 me c2
-    double de_dx = K * Z_A * (1/beta_2) *
-      (0.5*log( 2*Me*beta_2*gamma_2*Em/I_2 ) - beta_2 - 0.5*d );
+      double eps = (BetheBloch_Utils::K/2)*Z_A*thick/beta_2; // convenient
 
-    //double de_dx2 = 10* a_2 * 2*pi * Na * Le_2 * Z_A * (Me / beta_2) *
-    //( log( 2*Me*beta_2*gamma_2*Em/I_2 ) - 2*beta_2 + 0.25*(Em_2/E_2) - d );
+      double de_dx = eps *
+        (log( 2*BetheBloch_Utils::Me*beta_2*gamma_2/I ) + log(eps/I) + j - beta_2 - d );
 
-    return de_dx; // in MeV/(gr/cm^2)
-  }
+      //double de_dx2 = 10* a_2 * 2*pi * Na * Le_2 * Z_A * (Me / beta_2) *
+      //( log( 2*Me*beta_2*gamma_2*Em/I_2 ) - 2*beta_2 + 0.25*(Em_2/E_2) - d );
 
-  // Calculate the ionsiation for muons in Bethe Bloch
-  // 34.12 pdg
-  // MeV/(gr/cm2)
-  double Calc_dEdx_mostprob(double E) {
-    // z over A
-    double Z_A = 26./56;
-    double beta = RelativisticBeta(Mm, E);
-    double beta_2 = beta*beta;
-    double gamma = RelativisticGamma(Mm, E);
-    double gamma_2 = gamma*gamma;
-    // Ionisation from PDG
-    double I = 286E-6; // 286 eV -> 286E-6 in MeV
-    double E_2 = E*E;
-    double d = DensityCorrectionFactor(E);
-    //const double thick = 1./7.85; // thickness in g/cm2 -> try 1cm with 7.85 g/cm3 density
-    //const double thick = 7.85;
-    const double thick = 1.0;
-    const double j = 0.200; // from pdg
+      return de_dx; // in MeV/(gr/cm^2)
+    }
 
-    double eps = (K/2)*Z_A*thick/beta_2; // convenient
+    Material fMaterial;
+};
 
-    // K = 4pi NA re2 me c2
-    double de_dx = eps *
-      (log( 2*Me*beta_2*gamma_2/I ) + log(eps/I) + j - beta_2 - d );
 
-    //double de_dx2 = 10* a_2 * 2*pi * Na * Le_2 * Z_A * (Me / beta_2) *
-    //( log( 2*Me*beta_2*gamma_2*Em/I_2 ) - 2*beta_2 + 0.25*(Em_2/E_2) - d );
-
-    return de_dx; // in MeV/(gr/cm^2)
-  }
-
-}

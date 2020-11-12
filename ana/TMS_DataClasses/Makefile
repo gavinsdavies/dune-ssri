@@ -29,12 +29,12 @@ TMS_OBJ = TMS_Bar.o TMS_Hit.o TMS_TrueHit.o TMS_Event.o TMS_TrueParticle.o TMS_E
 %.o:%.cpp
 	$(CXX) -c $(CXXFLAGS) $<
 
-all: libTMS_Prod ConvertToTMSTree.exe
+all: libTMS_Prod ConvertToTMSTree.exe BetheBloch_Example.exe
 
 libTMS_Prod: libTMS_Prod.so
 
 ConvertToTMSTree.exe: ConvertToTMSTree.cpp libTMS_Prod
-	$(CXX) $(CXXFLAGS) -o ConvertToTMSTree.exe ConvertToTMSTree.cpp -L . -lTMS_Prod $(LIB_OBJ) $(BUILD_FLAGS)
+	$(CXX) $(CXXFLAGS) -o $@ ConvertToTMSTree.cpp -L . -lTMS_Prod $(LIB_OBJ) $(BUILD_FLAGS)
 
 # Make the archive or static lib
 libTMS_Prod.a: $(TMS_OBJ)
@@ -44,5 +44,8 @@ libTMS_Prod.a: $(TMS_OBJ)
 libTMS_Prod.so: libTMS_Prod.a
 	$(LD_SHARED) $(SO_FLAGS) $(CXXFLAGS) -o $@ -Wl,--whole-archive $^ -Wl,--no-whole-archive $(LIB_OBJ)
 
+BetheBloch_Example.exe: BetheBloch_Example.cpp
+	$(CXX) $(ROOT_INC) -o $@ $^ $(ROOT_LIBS)
+
 clean:
-	rm -f lib* *.o *.a
+	rm -f lib* *.o *.a *.exe
