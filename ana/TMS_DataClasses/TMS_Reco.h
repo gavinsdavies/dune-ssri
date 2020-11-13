@@ -78,19 +78,12 @@ class aNode {
       std::cout << "x, y = " << x << ", " << y << std::endl;
       std::cout << "Heuristic: " << HeuristicCost << std::endl; //" Ground: " << GroundCost << std::endl;
       std::cout << "Number of neighbours: " << Neighbours.size() << std::endl;
-      //std::cout << "ParentNodeID: " << ParentNodeID << std::endl;
     }
 };
 
 inline bool operator<(aNode const &a, aNode const &b) {
   return a.HeuristicCost < b.HeuristicCost;
 }
-
-/*
-   bool CompareHeuristic(aNode const &a, aNode const &b) {
-   return a.HeuristicCost > b.HeuristicCost;
-   }
-   */
 
 // Maybe put this inside a separate namespace
 class TMS_TrackFinder {
@@ -187,6 +180,8 @@ class TMS_TrackFinder {
 
     double HighestCost;
     bool IsGreedy;
+    // Which planes are next to the gaps (i.e. may cause discontinuities)?
+    std::vector<int> PlanesNearGap;
 };
 
 #endif

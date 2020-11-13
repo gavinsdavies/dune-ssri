@@ -83,4 +83,13 @@ class TMS_Hit {
     double Time;
 };
 
+inline bool operator==(const TMS_Hit &a, const TMS_Hit &b) {
+  if (a.GetX() == b.GetX() && 
+      a.GetY() == b.GetY() && 
+      a.GetZ() == b.GetZ() &&
+      a.GetE() == b.GetE() &&
+      a.GetT() == b.GetT() ) return true;
+  return false;
+}
+
 #endif

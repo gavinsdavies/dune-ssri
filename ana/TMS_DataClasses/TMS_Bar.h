@@ -58,6 +58,8 @@ class TMS_Bar {
     int FindBar(double x, double y, double z);
     bool FindModules(double x, double y, double z);
 
+    double FindYbar(double yval);
+
     // Find if a 2D point is inside the bar
     // x here denotes the other view than z
     // can be both x and y views (depending on bar type)!

@@ -16,9 +16,9 @@ DrawTrackFinding(false)
   const double ymin = (-250+TMS_Const::TMS_Det_Offset[1])*10;
   const double ymax = (100+TMS_Const::TMS_Det_Offset[1])*10;
   // Scint bars are 4 by 1 cm
-  const int nbinsz = ((zmax-zmin)/10)/6;
-  const int nbinsx = ((xmax-xmin)/10)/6;
-  const int nbinsy = ((ymax-ymin)/10)/6;
+  const int nbinsz = ((zmax-zmin)/10)/5;
+  const int nbinsx = ((xmax-xmin)/10)/3;
+  const int nbinsy = ((ymax-ymin)/10)/3;
 
   // The 2D views
   xz_view = new TH2D("TMS_Viewer_xz", "TMS viewer xz;z (mm); x (mm); Energy Deposit (MeV)", nbinsz, zmin, zmax, nbinsx, xmin, xmax);

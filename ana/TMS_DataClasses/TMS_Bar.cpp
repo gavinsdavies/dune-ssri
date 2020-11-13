@@ -1,34 +1,4 @@
 #include "TMS_Bar.h"
-/*
-TMS_Bar::TMS_Bar() {
-  // Default to an error
-  BarOrient = kError;
-  x = -999.9999;
-  y = -999.9999;
-  z = -999.9999;
-  xw = -999.9999;
-  yw = -999.9999;
-  zw = -999.9999;
-  BarNumber = -999;
-}
-
-TMS_Bar::TMS_Bar(double xpos, double ypos, double zpos) {
-  x = xpos;
-  y = ypos;
-  z = zpos;
-  // Figure out what to do here... It neds to find itself?
-  BarNumber = -999;
-  PlaneNumber = FindBar(x,y,z);
-}
-
-TMS_Bar::TMS_Bar(double xpos, double ypos, double zpos, int BarNo) {
-  x = xpos;
-  y = ypos;
-  z = zpos;
-  BarNumber = BarNo;
-  //PlaneNumber = FindBar(x,y,z);
-}
-*/
 
 // Construct a bar from a hit
 TMS_Bar::TMS_Bar(TG4HitSegment &edep_seg) {
@@ -50,22 +20,9 @@ TMS_Bar::TMS_Bar(TG4HitSegment &edep_seg) {
   y = avgy;
   z = avgz;
 
-  /*
-  std::cout << "Start: " << std::endl;
-  edep_seg.GetStart().Print();
-  std::cout << "Stop: " << std::endl;
-  edep_seg.GetStop().Print();
-  std::cout << "Before: " << x << ", " << y << ", " << z << std::endl;
-  edep_seg.GetStart().Print();
-  x = edep_seg.GetStart().X();
-  y = edep_seg.GetStart().Y();
-  z = edep_seg.GetStart().Z();
-  */
-
   // Find the bar in the geometry
-  //FindModules(avgx, avgy, avgz);
+  // Updates the x,y,z,xw,yw,zw
   FindModules(x, y, z);
-  //std::cout << "After: " << x << ", " << y << ", " << z << std::endl;
 }
 
 // Find which bar a given x,y,z position corresponds to
@@ -125,10 +82,13 @@ bool TMS_Bar::FindModules(double xval, double yval, double zval) {
   //y = Translation[1];
   z = Translation[2];
 
+  // For the y-bar hack around it
+  // Know y start and end points of detector, so split up into 40mm slices and see in which slice this falls in
+  y = FindYbar(y); 
+
   // If we've reached the world volume we don't have a scintillator hit -> return some mad bad value
   if (BarNumber == -1 || PlaneNumber == -1 || GlobalBarNumber == -1) {
     // Since the bar has already been created as a "error" in the above empty constructor we can just return
-    //std::cout << "Bar number or plane number not found in Geometry" << std::endl;
     return false;
   }
 
@@ -205,4 +165,20 @@ void TMS_Bar::Print() {
   std::cout << "PlaneNumber: " << PlaneNumber << std::endl;
   std::cout << "BarNumber: " << BarNumber << std::endl;
   std::cout << "GlobalBarNumber: " << GlobalBarNumber << std::endl;
+}
+
+double TMS_Bar::FindYbar(double yval) {
+  const double ymin = (-250+TMS_Const::TMS_Det_Offset[1])*10;
+  //const double ymax = (100+TMS_Const::TMS_Det_Offset[1])*10;
+
+  // The total range of y
+  //double yrange = ymax-ymin;
+  // Splits into how many 40mm slices
+  //int nSlices = yrange/40;
+  int bin = (yval-ymin)/40;
+  // Return the center of the bin
+  double val = ymin+bin*40+20;
+  //std::cout << yval << " corrected to " << val << std::endl;
+
+  return val;
 }
