@@ -81,8 +81,10 @@ void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
   SpatialPrio(TMS_xz);
 
   for (int a = 0; a < 2; ++a) {
-    std::vector<TMS_Hit> TMS_xz_cand = RunHough(TMS_xz);
-    std::vector<TMS_Hit> TMS_yz_cand = RunHough(TMS_yz);
+    std::vector<TMS_Hit> TMS_xz_cand;
+    std::vector<TMS_Hit> TMS_yz_cand;
+    if (TMS_xz.size() > 0) TMS_xz_cand = RunHough(TMS_xz);
+    if (TMS_yz.size() > 0) TMS_yz_cand = RunHough(TMS_yz);
 
     for (auto &i : TMS_xz_cand) Candidates.push_back(std::move(i));
     for (auto &i : TMS_yz_cand) Candidates.push_back(std::move(i));
