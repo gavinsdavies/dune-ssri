@@ -28,44 +28,30 @@ TMS_TrackFinder::TMS_TrackFinder() :
   IsGreedy(false)
 {
   // Apply the maximum Hough transform to the zx not zy: all bending happens in zx
-
-  /*
-  Accumulator_zy = new int*[nTheta];
-  Accumulator_zx = new int*[nTheta];
-  for (int i = 0; i < nTheta; ++i) {
-    Accumulator_zy[i] = new int[nRho];
-    Accumulator_zx[i] = new int[nRho];
-  }
-  */
-  Accumulator_zy = new int*[nSlope];
-  Accumulator_zx = new int*[nSlope];
+  Accumulator = new int*[nSlope];
   for (int i = 0; i < nSlope; ++i) {
-    Accumulator_zy[i] = new int[nIntercept];
-    Accumulator_zx[i] = new int[nIntercept];
+    Accumulator[i] = new int[nIntercept];
   }
 
-  // Make the TF1
-  //HoughLine_zy = new TF1("LinearHough_zy", "[0]*x+[2]/[1]", (735+411)*10, (1450+411)*10);
-  //HoughLine_zx = new TF1("LinearHough_zx", "[0]*x+[2]/[1]", (735+411)*10, zMaxHough);
-
-  HoughLine_zy = new TF1("LinearHough_zy", "[0]+[1]*x", (TMS_Const::TMS_Thin_Start+TMS_Const::TMS_Det_Offset[2])*10, (1450+TMS_Const::TMS_Det_Offset[2])*10);
-  HoughLine_zx = new TF1("LinearHough_zx", "[0]+[1]*x", (TMS_Const::TMS_Thin_Start+TMS_Const::TMS_Det_Offset[2])*10, zMaxHough);
-  HoughLine_zy->SetLineStyle(kDashed);
-  HoughLine_zx->SetLineStyle(kDashed);
-  HoughLine_zy->SetLineColor(kRed);
-  HoughLine_zx->SetLineColor(kRed);
+  HoughLine = new TF1("LinearHough", "[0]+[1]*x", (TMS_Const::TMS_Thin_Start+TMS_Const::TMS_Det_Offset[2])*10, (1450+TMS_Const::TMS_Det_Offset[2])*10);
+  HoughLine->SetLineStyle(kDashed);
+  HoughLine->SetLineColor(kRed);
 }
 
 // The generic track finder
 void TMS_TrackFinder::FindTracks(TMS_Event &event) {
   std::cout << "Event: " << event.GetEventNumber() << std::endl;
 
+  // Check through the Houghlines
+  for (auto i : HoughLines) {
+    delete i.second;
+  }
+
   // Reset the candidate vector
   Candidates.clear();
   RawHits.clear();
   TotalCandidates.clear();
-  HoughLines_zy.clear();
-  HoughLines_zx.clear();
+  HoughLines.clear();
 
   // Get the raw unmerged and untracked hits
   std::vector<TMS_Hit> TMS_Hits = event.GetHits();
@@ -74,113 +60,129 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
   if (TMS_Hits.size() < nMinHits) return;
 
   // A star
-  BestFirstSearch(TMS_Hits);
+  //BestFirstSearch(TMS_Hits);
 
   // Hough
-  //HoughTransform(TMS_Hits);
+  HoughTransform(TMS_Hits);
 }
 
 void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
 
   // First remove duplicate hits
-  //std::vector<TMS_Hit> TMS_Hits_Cleaned = CleanHits(TMS_Hits);
+  std::vector<TMS_Hit> TMS_Hits_Cleaned = CleanHits(TMS_Hits);
 
   // Now split in yz and xz hits
-  //std::vector<TMS_Hit> TMS_xz = ProjectHits(TMS_Hits_Cleaned, TMS_Bar::kYBar);
-  //std::vector<TMS_Hit> TMS_yz = ProjectHits(TMS_Hits_Cleaned, TMS_Bar::kXBar);
+  std::vector<TMS_Hit> TMS_xz = ProjectHits(TMS_Hits_Cleaned, TMS_Bar::kYBar);
+  std::vector<TMS_Hit> TMS_yz = ProjectHits(TMS_Hits_Cleaned, TMS_Bar::kXBar);
 
-  // Reset the accumulators
+  // Do a spatial analysis of the hits in y and x around low z to ignore hits that are disconnected from other hits
+  // Includes a simple sort in decreasing z (plane number)
+  SpatialPrio(TMS_yz);
+  SpatialPrio(TMS_xz);
+
+  for (int a = 0; a < 2; ++a) {
+    std::vector<TMS_Hit> TMS_xz_cand = RunHough(TMS_xz);
+    std::vector<TMS_Hit> TMS_yz_cand = RunHough(TMS_yz);
+
+    for (auto &i : TMS_xz_cand) Candidates.push_back(std::move(i));
+    for (auto &i : TMS_yz_cand) Candidates.push_back(std::move(i));
+    // Loop over vector and remove used hits
+    for (auto jt = TMS_yz_cand.begin(); jt != TMS_yz_cand.end();++jt) {
+      for (auto it = TMS_yz.begin(); it!= TMS_yz.end();) {
+        if ((*it) == (*jt)) it = TMS_yz.erase(it);
+        else it++;
+      }
+    }
+
+    // Loop over vector and remove used hits
+    for (auto jt = TMS_xz_cand.begin(); jt != TMS_xz_cand.end();++jt) {
+      for (auto it = TMS_xz.begin(); it!= TMS_xz.end();) {
+        if ((*it) == (*jt)) it = TMS_xz.erase(it);
+        else it++;
+      }
+    }
+  }
+
+}
+
+
+std::vector<TMS_Hit> TMS_TrackFinder::RunHough(const std::vector<TMS_Hit> &TMS_Hits) {
+
+  bool IsXZ = ((TMS_Hits[0].GetBar()).GetBarType() == TMS_Bar::kYBar);
+  //std::cout << "is xz: " << IsXZ << std::endl;
+
+  // Reset the accumulator
   for (int i = 0; i < nSlope; ++i) {
     for (int j = 0; j < nIntercept; ++j) {
-      Accumulator_zy[i][j] = 0;
-      Accumulator_zx[i][j] = 0;
+      Accumulator[i][j] = 0;
     }
   }
 
   // First run a simple Hough Transform
   for (std::vector<TMS_Hit>::const_iterator it = TMS_Hits.begin(); it!=TMS_Hits.end(); ++it) {
     TMS_Hit hit = (*it);
-    TMS_Bar bar = hit.GetBar();
-    double xhit = bar.GetX();
-    double yhit = bar.GetY();
-    double zhit = bar.GetZ();
+    double xhit = hit.GetNotZ();
+    double zhit = hit.GetZ();
 
-    TMS_Bar::BarType Type = bar.GetBarType();
     // If z position is above region of interest, ignore hit
-    if (Type == TMS_Bar::kYBar && zhit > zMaxHough) continue;
+    if (IsXZ && zhit > zMaxHough) continue;
 
-    Accumulate(xhit, yhit, zhit, Type);
+    Accumulate(xhit, zhit);
   }
 
   // Find the maximum of the accumulator and which m,c bin the maximum occurs in
   double max_zy = 0;
-  double max_zx = 0;
   int max_zy_slope_bin = 0;
   int max_zy_inter_bin = 0;
-  int max_zx_slope_bin = 0;
-  int max_zx_inter_bin = 0;
   for (int i = 0; i < nSlope; ++i) {
     for (int j = 0; j < nIntercept; ++j) {
-      if (Accumulator_zy[i][j] > max_zy) {
-        max_zy = Accumulator_zy[i][j];
+      if (Accumulator[i][j] > max_zy) {
+        max_zy = Accumulator[i][j];
         max_zy_slope_bin = i;
         max_zy_inter_bin = j;
-      }
-      if (Accumulator_zx[i][j] > max_zx) {
-        max_zx = Accumulator_zx[i][j];
-        max_zx_slope_bin = i;
-        max_zx_inter_bin = j;
       }
     }
   }
 
-  double InterceptOpt_zx = InterceptMin+max_zx_inter_bin*(InterceptMax-InterceptMin)/nIntercept;
-  double SlopeOpt_zx = SlopeMin+max_zx_slope_bin*(SlopeMax-SlopeMin)/nSlope;
-
   double InterceptOpt_zy = InterceptMin+max_zy_inter_bin*(InterceptMax-InterceptMin)/nIntercept;
   double SlopeOpt_zy = SlopeMin+max_zy_slope_bin*(SlopeMax-SlopeMin)/nSlope;
-  HoughLine_zy->SetParameter(0, InterceptOpt_zy);
-  HoughLine_zy->SetParameter(1, SlopeOpt_zy);
+  HoughLine->SetParameter(0, InterceptOpt_zy);
+  HoughLine->SetParameter(1, SlopeOpt_zy);
+  if (IsXZ) HoughLine->SetRange(HoughLine->GetXmin(), zMaxHough);
+  else HoughLine->SetRange((TMS_Const::TMS_Thin_Start+TMS_Const::TMS_Det_Offset[2])*10, (1450+TMS_Const::TMS_Det_Offset[2])*10);
 
-  HoughLine_zx->SetParameter(0, InterceptOpt_zx);
-  HoughLine_zx->SetParameter(1, SlopeOpt_zx);
+  TF1 *HoughCopy = (TF1*)HoughLine->Clone();
 
-  HoughLines_zy.push_back(HoughLine_zy);
-  HoughLines_zx.push_back(HoughLine_zx);
+  std::pair<bool, TF1*> hough = std::make_pair(IsXZ, HoughCopy);
+  HoughLines.push_back(hough);
 
   // Then run a clustering on the Hough Transform
   // Hough transform is most likely to pick out straigh features at begining of track candidate, so start looking there
-  TF1 *HoughLine = NULL;
 
   // Make a hard copy since we don't want to remove the original hits
   // Just make a pool of hits, and tracked hits
   // We'll pull hit out of the HitPool and put them into Candidates
   std::vector<TMS_Hit> HitPool = TMS_Hits;
 
+  std::vector<TMS_Hit> returned;
+
   // Move hits from the pool into the candidates, and remove the candidates from the pool
   // HitPool is going to shrink or stay the same here
   for (std::vector<TMS_Hit>::iterator it = HitPool.begin(); it!=HitPool.end();) {
     TMS_Hit hit = (*it);
-    TMS_Bar bar = hit.GetBar();
-    double zhit = bar.GetZ();
-    TMS_Bar::BarType Type = bar.GetBarType();
+    TMS_Bar bar = (*it).GetBar();
+    double zhit = hit.GetZ();
     // If z position is above region of interest, ignore hit
-    if (Type == TMS_Bar::kYBar && zhit > zMaxHough) {
+    if (IsXZ && zhit > zMaxHough) {
       ++it;
       continue;
-    }
-
-    if (Type == TMS_Bar::kXBar) {
-      HoughLine = HoughLine_zy;
-    } else if (Type == TMS_Bar::kYBar) {
-      HoughLine = HoughLine_zx;
     }
 
     double HoughPoint = HoughLine->Eval(zhit);
 
     // Hough point is inside bar -> start clustering around bar
     if (bar.Contains(HoughPoint, zhit)) {
-      Candidates.push_back(std::move(hit));
+      returned.push_back(std::move(hit));
       // Remove from pool of hits
       it = HitPool.erase(it);
     } else {
@@ -188,13 +190,13 @@ void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
     }
   }
 
+
   // Loop over the candidates, and add new adjacent candidates to the end
-  size_t CandSize = Candidates.size();
+  size_t CandSize = returned.size();
   for (size_t i = 0; i < CandSize; ++i) {
-    TMS_Hit Candidate = Candidates[i];
+    TMS_Hit Candidate = returned[i];
     TMS_Bar CandidateBar = Candidate.GetBar();
-    int CandidatePlaneNumber = CandidateBar.GetPlaneNumber();
-    TMS_Bar::BarType CandidateBarType = CandidateBar.GetBarType();
+    int CandidatePlaneNumber = Candidate.GetPlaneNumber();
 
     // Count the number of times a candidate merges adjacent hits
     unsigned int nMerges = 0;
@@ -208,18 +210,11 @@ void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
       if (nMerges >= nMaxMerges) break;
       TMS_Hit PoolHit = (*jt);
       TMS_Bar PoolBar = PoolHit.GetBar();
-      int PoolPlaneNumber = PoolBar.GetPlaneNumber();
-      TMS_Bar::BarType PoolBarType = PoolBar.GetBarType();
-
-      // Only match the same type of bars (x bars with x bars, y bars with ybars)
-      if (PoolBarType != CandidateBarType) {
-        ++jt;
-        continue;
-      }
+      int PoolPlaneNumber = PoolHit.GetPlaneNumber();
 
       // Now check the distance in x or y depending on bar
-      double PoolPos = PoolBar.GetNotZ();
-      double PoolPosWidth = PoolBar.GetNotZw();
+      double PoolPos = PoolHit.GetNotZ();
+      double PoolPosWidth = PoolHit.GetNotZw();
 
       // Ensure adjacent or matching in z
       // Make an exception for the airgaps; allow any range in z
@@ -243,16 +238,16 @@ void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
             CandidateBar.Contains(PoolPos - PoolPosWidth, CandidateBar.GetZ())) {
           Merge = true;
           // Then check two bars away for the xz view
-        } else if (CandidateBarType == TMS_Bar::kYBar && 
+        } else if (IsXZ && 
             (CandidateBar.Contains(PoolPos + 2*PoolPosWidth, CandidateBar.GetZ()) || 
              CandidateBar.Contains(PoolPos - 2*PoolPosWidth, CandidateBar.GetZ()))) {
           Merge = true;
         } /*else if (CandidateBarType == TMS_Bar::kYBar && 
             (CandidateBar.Contains(PoolPos + 3*PoolPosWidth, CandidateBar.GetZ()) || 
-             CandidateBar.Contains(PoolPos - 3*PoolPosWidth, CandidateBar.GetZ()))) {
-          Merge = true;
-        }
-        */
+            CandidateBar.Contains(PoolPos - 3*PoolPosWidth, CandidateBar.GetZ()))) {
+            Merge = true;
+            }
+            */
 
         // Make a special arrangement for if we're next to the gap
         else if (InGap && ( 
@@ -268,7 +263,7 @@ void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
       }
 
       if (Merge) {
-        Candidates.push_back(std::move(PoolHit));
+        returned.push_back(std::move(PoolHit));
         // Increment the number of candidates in the vector
         CandSize++;
         jt = HitPool.erase(jt);
@@ -280,64 +275,57 @@ void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
     }
   }
 
+  return returned;
+
   // Now see if the yz and xz views roughly agree on stop and start positions of the main track
   // If not, it implies there may be two tracks and the yz view has selected one whereas xz selected theother, or a broken track in one of the views
-  int StartPlane_xz = 99999999;
-  int EndPlane_xz = -99999999;
-  int StartPlane_yz = 99999999;
-  int EndPlane_yz = -99999999;
+  /*
+     int StartPlane_xz = 99999999;
+     int EndPlane_xz = -99999999;
 
-  for (std::vector<TMS_Hit>::iterator it = Candidates.begin(); it != Candidates.end(); ++it) {
-    TMS_Bar Bar = (*it).GetBar();
-    // Compare the plane number
-    int PlaneNumber = Bar.GetPlaneNumber();
-    // if this bar is an x-bar, look at yz hits
-    if (Bar.GetBarType() == TMS_Bar::kXBar) {
-      if (PlaneNumber < StartPlane_yz) StartPlane_yz = PlaneNumber;
-      if (PlaneNumber > EndPlane_yz) EndPlane_yz = PlaneNumber;
-
-      // if this bar is an x-bar, look at yz hits
-    } else if (Bar.GetBarType() == TMS_Bar::kYBar) {
-      if (PlaneNumber < StartPlane_xz) StartPlane_xz = PlaneNumber;
-      if (PlaneNumber > EndPlane_xz) EndPlane_xz = PlaneNumber;
-    }
-
+     for (std::vector<TMS_Hit>::iterator it = Candidates.begin(); it != Candidates.end(); ++it) {
+     TMS_Bar Bar = (*it).GetBar();
+  // Compare the plane number
+  int PlaneNumber = Bar.GetPlaneNumber();
+  if (PlaneNumber < StartPlane_yz) StartPlane_yz = PlaneNumber;
+  if (PlaneNumber > EndPlane_yz) EndPlane_yz = PlaneNumber;
   }
 
-  //bool Matched_yz_xz = true;
+  // Propagate the xz/yz start and endpoints here
   if (abs(StartPlane_yz - StartPlane_xz) != 1 || abs(EndPlane_yz - EndPlane_xz) != 1) {
-    //Matched_yz_xz = false;
-    std::cout << "Not matching end/start plane" << std::endl;
-    std::cout << "StartPlane yz: " << StartPlane_yz << ", EndPlane yz: " << EndPlane_yz << std::endl;
-    std::cout << "StartPlane xz: " << StartPlane_xz << ", EndPlane xz: " << EndPlane_xz << std::endl;
+  //Matched_yz_xz = false;
+  std::cout << "Not matching end/start plane" << std::endl;
+  std::cout << "StartPlane yz: " << StartPlane_yz << ", EndPlane yz: " << EndPlane_yz << std::endl;
+  std::cout << "StartPlane xz: " << StartPlane_xz << ", EndPlane xz: " << EndPlane_xz << std::endl;
   }
+  */
 
   /*
   // Do a Hough transform on the remaining hits
   // If this Hough transform matches within some number the original Hough transform parameters, merge the tracks
   // Reset the accumulator (or make a new one?)
   for (int i = 0; i < nSlope; ++i) {
-    for (int j = 0; j < nIntercept; ++j) {
-      Accumulator_zy[i][j] = 0;
-      Accumulator_zx[i][j] = 0;
-    }
+  for (int j = 0; j < nIntercept; ++j) {
+  Accumulator_zy[i][j] = 0;
+  Accumulator_zx[i][j] = 0;
+  }
   }
 
   // First run a simple Hough Transform
   for (std::vector<TMS_Hit>::iterator it = HitPool.begin(); it!=HitPool.end(); ++it) {
-    TMS_Hit hit = (*it);
-    TMS_Bar bar = hit.GetBar();
-    //double EnergyDeposit = hit.GetE();
-    //double Time = hit.GetT();
-    double xhit = bar.GetX();
-    double yhit = bar.GetY();
-    double zhit = bar.GetZ();
+  TMS_Hit hit = (*it);
+  TMS_Bar bar = hit.GetBar();
+  //double EnergyDeposit = hit.GetE();
+  //double Time = hit.GetT();
+  double xhit = bar.GetX();
+  double yhit = bar.GetY();
+  double zhit = bar.GetZ();
 
-    TMS_Bar::BarType Type = bar.GetBarType();
-    // Scan over the entire range this time
-    // Or maybe the z region in which the other view's track has been found?
+  TMS_Bar::BarType Type = bar.GetBarType();
+  // Scan over the entire range this time
+  // Or maybe the z region in which the other view's track has been found?
 
-    Accumulate(xhit, yhit, zhit, Type);
+  Accumulate(xhit, yhit, zhit, Type);
   }
 
   max_zy = 0;
@@ -347,18 +335,18 @@ void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
   max_zx_slope_bin = 0;
   max_zx_inter_bin = 0;
   for (int i = 0; i < nSlope; ++i) {
-    for (int j = 0; j < nIntercept; ++j) {
-      if (Accumulator_zy[i][j] > max_zy) {
-        max_zy = Accumulator_zy[i][j];
-        max_zy_slope_bin = i;
-        max_zy_inter_bin = j;
-      }
-      if (Accumulator_zx[i][j] > max_zx) {
-        max_zx = Accumulator_zx[i][j];
-        max_zx_slope_bin = i;
-        max_zx_inter_bin = j;
-      }
-    }
+  for (int j = 0; j < nIntercept; ++j) {
+  if (Accumulator_zy[i][j] > max_zy) {
+  max_zy = Accumulator_zy[i][j];
+  max_zy_slope_bin = i;
+  max_zy_inter_bin = j;
+  }
+  if (Accumulator_zx[i][j] > max_zx) {
+  max_zx = Accumulator_zx[i][j];
+  max_zx_slope_bin = i;
+  max_zx_inter_bin = j;
+  }
+  }
   }
 
   double InterceptOpt_zx_2 = InterceptMin+max_zx_inter_bin*(InterceptMax-InterceptMin)/nIntercept;
@@ -381,113 +369,113 @@ void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
   // First make a second candidate vector
   std::vector<TMS_Hit> Candidates2;
   for (std::vector<TMS_Hit>::iterator it = HitPool.begin(); it!=HitPool.end(); ) {
-    TMS_Hit hit = (*it);
-    TMS_Bar bar = hit.GetBar();
-    double zhit = bar.GetZ();
-    TMS_Bar::BarType Type = bar.GetBarType();
-    if (Type == TMS_Bar::kXBar) {
-      HoughLine = HoughLine_zy_2;
-    } else if (Type == TMS_Bar::kYBar) {
-      HoughLine = HoughLine_zx_2;
+  TMS_Hit hit = (*it);
+  TMS_Bar bar = hit.GetBar();
+  double zhit = bar.GetZ();
+  TMS_Bar::BarType Type = bar.GetBarType();
+  if (Type == TMS_Bar::kXBar) {
+    HoughLine = HoughLine_zy_2;
+  } else if (Type == TMS_Bar::kYBar) {
+    HoughLine = HoughLine_zx_2;
+  }
+
+double HoughPoint = HoughLine->Eval(zhit);
+
+// Hough point is inside bar -> start clustering around bar
+if (bar.Contains(HoughPoint, zhit)) {
+  Candidates2.push_back(std::move(hit));
+  // Remove from pool of hits
+  it = HitPool.erase(it);
+} else {
+  ++it;
+}
+}
+
+// Loop over the candidates, and add new adjacent candidates to the end
+CandSize = Candidates2.size();
+for (size_t i = 0; i < CandSize; ++i) {
+  TMS_Hit Candidate = Candidates2[i];
+  TMS_Bar CandidateBar = Candidate.GetBar();
+  int CandidatePlaneNumber = CandidateBar.GetPlaneNumber();
+  TMS_Bar::BarType CandidateBarType = CandidateBar.GetBarType();
+
+  // Count the number of times a candidate merges adjacent hits
+  unsigned int nMerges = 0;
+  // Now loop over each hit
+  for (std::vector<TMS_Hit>::iterator jt = HitPool.begin(); jt != HitPool.end();) {
+    TMS_Hit PoolHit = (*jt);
+    TMS_Bar PoolBar = PoolHit.GetBar();
+    int PoolPlaneNumber = PoolBar.GetPlaneNumber();
+    TMS_Bar::BarType PoolBarType = PoolBar.GetBarType();
+
+    // Only match the same type of bars (x bars with x bars, y bars with ybars)
+    if (PoolBarType != CandidateBarType) {
+      ++jt;
+      continue;
     }
 
-    double HoughPoint = HoughLine->Eval(zhit);
+    // Ensure adjacent or matching in z
+    // Need some exception here for the airgaps! FIGURE IT OUT
+    if (abs(CandidatePlaneNumber-PoolPlaneNumber) > 2) {
+      ++jt;
+      continue;
+    }
 
-    // Hough point is inside bar -> start clustering around bar
-    if (bar.Contains(HoughPoint, zhit)) {
-      Candidates2.push_back(std::move(hit));
-      // Remove from pool of hits
-      it = HitPool.erase(it);
+    // Now check the distance in x or y depending on bar
+    double PoolPos = PoolBar.GetNotZ();
+    double PoolPosWidth = PoolBar.GetNotZw();
+    // If the Candidate bar contains the pool bar + it's width, they're adjacent
+    // Or even better, the adjacent hits have maxing not z
+    if (CandidateBar.Contains(PoolPos + PoolPosWidth, CandidateBar.GetZ()) || CandidateBar.Contains(PoolPos - PoolPosWidth, CandidateBar.GetZ()) || CandidateBar.Contains(PoolPos, CandidateBar.GetZ())) {
+      Candidates2.push_back(std::move(PoolHit));
+      // Increment the number of candidates in the vector
+      CandSize++;
+      jt = HitPool.erase(jt);
+      // Increment the merges for this candidate
+      nMerges++;
     } else {
-      ++it;
+      ++jt;
     }
   }
+}
 
-  // Loop over the candidates, and add new adjacent candidates to the end
-  CandSize = Candidates2.size();
-  for (size_t i = 0; i < CandSize; ++i) {
-    TMS_Hit Candidate = Candidates2[i];
-    TMS_Bar CandidateBar = Candidate.GetBar();
-    int CandidatePlaneNumber = CandidateBar.GetPlaneNumber();
-    TMS_Bar::BarType CandidateBarType = CandidateBar.GetBarType();
+// Now we *should* have two candidates?
+std::cout << "Total hits: " << TMS_Hits.size() << std::endl;
+std::cout << "Candidates (Hough+Cluster): " << Candidates.size() << std::endl;
+std::cout << "Candidates2 (Leftover+Hough+cluster): " << Candidates2.size() << std::endl;
+std::cout << "Hitpool: " << HitPool.size() << std::endl;
 
-    // Count the number of times a candidate merges adjacent hits
-    unsigned int nMerges = 0;
-    // Now loop over each hit
-    for (std::vector<TMS_Hit>::iterator jt = HitPool.begin(); jt != HitPool.end();) {
-      TMS_Hit PoolHit = (*jt);
-      TMS_Bar PoolBar = PoolHit.GetBar();
-      int PoolPlaneNumber = PoolBar.GetPlaneNumber();
-      TMS_Bar::BarType PoolBarType = PoolBar.GetBarType();
+// Intersection in z (x-axis) of the two Hough lines
+double intersection_zx = (InterceptOpt_zx-InterceptOpt_zx_2)/(SlopeOpt_zx_2-SlopeOpt_zx);
+double intersection_zy = (InterceptOpt_zy-InterceptOpt_zy_2)/(SlopeOpt_zy_2-SlopeOpt_zy);
+std::cout << "Intersection zx: " << intersection_zx << std::endl;
+std::cout << "Intersection zy: " << intersection_zy << std::endl;
 
-      // Only match the same type of bars (x bars with x bars, y bars with ybars)
-      if (PoolBarType != CandidateBarType) {
-        ++jt;
-        continue;
-      }
+TotalCandidates.push_back(Candidates);
+//TotalCandidates.push_back(Candidates2);
 
-      // Ensure adjacent or matching in z
-      // Need some exception here for the airgaps! FIGURE IT OUT
-      if (abs(CandidatePlaneNumber-PoolPlaneNumber) > 2) {
-        ++jt;
-        continue;
-      }
+HoughLines_zy.push_back(HoughLine_zy);
+//HoughLines_zy.push_back(HoughLine_zy_2);
 
-      // Now check the distance in x or y depending on bar
-      double PoolPos = PoolBar.GetNotZ();
-      double PoolPosWidth = PoolBar.GetNotZw();
-      // If the Candidate bar contains the pool bar + it's width, they're adjacent
-      // Or even better, the adjacent hits have maxing not z
-      if (CandidateBar.Contains(PoolPos + PoolPosWidth, CandidateBar.GetZ()) || CandidateBar.Contains(PoolPos - PoolPosWidth, CandidateBar.GetZ()) || CandidateBar.Contains(PoolPos, CandidateBar.GetZ())) {
-        Candidates2.push_back(std::move(PoolHit));
-        // Increment the number of candidates in the vector
-        CandSize++;
-        jt = HitPool.erase(jt);
-        // Increment the merges for this candidate
-        nMerges++;
-      } else {
-        ++jt;
-      }
-    }
-  }
+HoughLines_zx.push_back(HoughLine_zx);
+//HoughLines_zx.push_back(HoughLine_zx_2);
 
-  // Now we *should* have two candidates?
-  std::cout << "Total hits: " << TMS_Hits.size() << std::endl;
-  std::cout << "Candidates (Hough+Cluster): " << Candidates.size() << std::endl;
-  std::cout << "Candidates2 (Leftover+Hough+cluster): " << Candidates2.size() << std::endl;
-  std::cout << "Hitpool: " << HitPool.size() << std::endl;
-
-  // Intersection in z (x-axis) of the two Hough lines
-  double intersection_zx = (InterceptOpt_zx-InterceptOpt_zx_2)/(SlopeOpt_zx_2-SlopeOpt_zx);
-  double intersection_zy = (InterceptOpt_zy-InterceptOpt_zy_2)/(SlopeOpt_zy_2-SlopeOpt_zy);
-  std::cout << "Intersection zx: " << intersection_zx << std::endl;
-  std::cout << "Intersection zy: " << intersection_zy << std::endl;
-
-  TotalCandidates.push_back(Candidates);
-  //TotalCandidates.push_back(Candidates2);
-
-  HoughLines_zy.push_back(HoughLine_zy);
-  //HoughLines_zy.push_back(HoughLine_zy_2);
-
-  HoughLines_zx.push_back(HoughLine_zx);
-  //HoughLines_zx.push_back(HoughLine_zx_2);
-
-  // If this Hough transform matches the start and end position in z of the other view, choose the longest track as the muon and make 2 candidate tracks
+// If this Hough transform matches the start and end position in z of the other view, choose the longest track as the muon and make 2 candidate tracks
 
 
 
-  // Last scan tries looks at hits that occur around the gap regions
-  // Then use this to inform the yz reconstruction (since broken tracks will be due to holes in x, not y)
+// Last scan tries looks at hits that occur around the gap regions
+// Then use this to inform the yz reconstruction (since broken tracks will be due to holes in x, not y)
 
 
-  // Run a Hough transform on the remaining HitPool to find second tracks
-  */
+// Run a Hough transform on the remaining HitPool to find second tracks
+*/
 
 
-  /*
-     std::cout << "After Hough+adjacent checks: " << std::endl;
-     std::cout << "Of " << TMS_Hits.size()  << " hits " << Candidates.size() << " are candidates and " << HitPool.size() << " are left" << std::endl;
-     */
+/*
+   std::cout << "After Hough+adjacent checks: " << std::endl;
+   std::cout << "Of " << TMS_Hits.size()  << " hits " << Candidates.size() << " are candidates and " << HitPool.size() << " are left" << std::endl;
+   */
 
 
 }
@@ -553,17 +541,7 @@ int TMS_TrackFinder::FindBin(double c) {
 }
 
 // xvalue is x-axis, y value is y-axis
-void TMS_TrackFinder::Accumulate(double xhit, double yhit, double zhit, TMS_Bar::BarType Type) {
-
-  double yvar = -9999999999;
-  int **Accumulator = NULL;
-  if (Type == TMS_Bar::kXBar) {
-    yvar = yhit;
-    Accumulator = Accumulator_zy;
-  } else if (Type == TMS_Bar::kYBar) {
-    yvar = xhit;
-    Accumulator = Accumulator_zx;
-  }
+void TMS_TrackFinder::Accumulate(double xhit, double zhit) {
 
   // Could probably multi-thread this operation
   // Now do the Hough
@@ -571,7 +549,7 @@ void TMS_TrackFinder::Accumulate(double xhit, double yhit, double zhit, TMS_Bar:
     double m = SlopeMin+i*SlopeWidth;
 
     // Now calculate rho
-    double c = yvar-m*zhit;
+    double c = xhit-m*zhit;
 
     // Find which rho bin this corresponds to
     int c_bin = FindBin(c);
@@ -585,13 +563,10 @@ void TMS_TrackFinder::Accumulate(double xhit, double yhit, double zhit, TMS_Bar:
 TH2D *TMS_TrackFinder::AccumulatorToTH2D(bool zy) {
 
   std::string Name;
-  int **Accumulator;
   if (zy) {
     Name = "TMS_TrackFinder_Accumulator_zy";
-    Accumulator = Accumulator_zy;
   } else {
     Name = "TMS_TrackFinder_Accumulator_zx";
-    Accumulator = Accumulator_zx;
   }
   TH2D *accumulator = new TH2D(Name.c_str(), (Name+";m (slope);c (intercept) (mm)").c_str(), nSlope, SlopeMin, SlopeMax, nIntercept, InterceptMin, InterceptMax);
 
@@ -661,7 +636,6 @@ void TMS_TrackFinder::BestFirstSearch(const std::vector<TMS_Hit> &TMS_Hits) {
     }
     std::cout << "yz = " << TMS_yz.size() << " after a = " << a << std::endl;
     std::cout << "xz = " << TMS_xz.size() << " after a = " << a << std::endl;
-
   }
 }
 
@@ -940,7 +914,7 @@ std::vector<TMS_Hit> TMS_TrackFinder::RunAstar(const std::vector<TMS_Hit> &TMS_x
 
   //std::cout << "Path: " << std::endl;
   //if (NodeID != Last.NodeID) {
-    //std::cout << "Did not find end of path" << std::endl;
+  //std::cout << "Did not find end of path" << std::endl;
   //}
 
 
@@ -955,7 +929,7 @@ std::vector<TMS_Hit> TMS_TrackFinder::RunAstar(const std::vector<TMS_Hit> &TMS_x
     }
   }
   //if (NodeID != 0) {
-    //std::cout << "did not find last point" << std::endl;
+  //std::cout << "did not find last point" << std::endl;
   //}
 
   //std::cout << "found path from " << pq.top().NodeID << std::endl;

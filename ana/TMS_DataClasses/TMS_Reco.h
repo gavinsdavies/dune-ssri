@@ -99,14 +99,11 @@ class TMS_TrackFinder {
     const std::vector<TMS_Hit> & GetCandidates() { return Candidates; };
     const std::vector<std::vector<TMS_Hit> >& GetTotalCandidates() { return TotalCandidates; };
 
-    TF1* GetHoughLine_zy() { return HoughLine_zy; };
-    TF1* GetHoughLine_zx() { return HoughLine_zx; };
+    TF1* GetHoughLine() { return HoughLine; };
 
-    std::vector<TF1*> GetHoughLines_zy() { return HoughLines_zy; };
-    std::vector<TF1*> GetHoughLines_zx() { return HoughLines_zx; };
+    std::vector<std::pair<bool, TF1*> > GetHoughLines() { return HoughLines; };
 
-    int **GetAccumulator_zy() { return Accumulator_zy; };
-    int **GetAccumulator_zx() { return Accumulator_zx; };
+    int **GetAccumulator() { return Accumulator; };
 
     TH2D *AccumulatorToTH2D(bool zy);
 
@@ -116,6 +113,7 @@ class TMS_TrackFinder {
     void BestFirstSearch(const std::vector<TMS_Hit> &TMS_Hits);
 
     void HoughTransform(const std::vector<TMS_Hit> &TMS_Hits);
+    std::vector<TMS_Hit> RunHough(const std::vector<TMS_Hit> &TMS_Hits);
 
     // Clean up the hits, removing duplicates and zero entries
     std::vector<TMS_Hit> CleanHits(const std::vector<TMS_Hit> &TMS_Hits);
@@ -139,22 +137,9 @@ class TMS_TrackFinder {
     std::vector<TMS_Hit> RawHits;
 
     std::vector<std::vector<TMS_Hit> > TotalCandidates;
-    std::vector<TF1*> HoughLines_zy;
-    std::vector<TF1*> HoughLines_zx;
+    std::vector<std::pair<bool, TF1*> > HoughLines;
 
-    void Accumulate(double xvalue, double yvalue, double zvalue, TMS_Bar::BarType Type);
-
-    // Number of theta bins
-    /*
-       int nTheta;
-       int nRho;
-       double RhoMin;
-       double RhoMax;
-       double ThetaMin;
-       double ThetaMax;
-       double ThetaWidth;
-       double RhoWidth;
-       */
+    void Accumulate(double xvalue, double zvalue);
 
     int nIntercept;
     int nSlope;
@@ -165,13 +150,9 @@ class TMS_TrackFinder {
     double InterceptWidth;
     double SlopeWidth;
 
-    int **Accumulator_zy;
-    int **Accumulator_zx;
+    int **Accumulator;
 
-    TF1 *HoughLine_zy;
-    TF1 *HoughLine_zx;
-    //std::vector<TF1*> HoughLines_zy;
-    //std::vector<TF1*> HoughLines_zx;
+    TF1 *HoughLine;
 
     double zMaxHough;
 

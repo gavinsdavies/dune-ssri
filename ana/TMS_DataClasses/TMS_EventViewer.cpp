@@ -194,6 +194,10 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
   //}
 
 
+    // Get all the hough lines
+  std::vector<std::pair<bool, TF1*> > HoughLines = TMS_TrackFinder::GetFinder().GetHoughLines();
+  //std::cout << HoughLines.size() << std::endl;
+
   gStyle->SetPalette(kBird);
   Canvas->cd(1); 
   xz_view->Draw("colz");
@@ -203,16 +207,14 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
   xz_dead_center->Draw("same");
   xz_dead_bottom->Draw("same");
   xz_Thin_Thick->Draw("same");
-  std::vector<TF1*> HoughLines_zx = TMS_TrackFinder::GetFinder().GetHoughLines_zx();
-  for (std::vector<TF1*>::iterator it = HoughLines_zx.begin(); it != HoughLines_zx.end(); ++it) (*it)->Draw("same");
+  for (auto i : HoughLines) if (i.first == true) i.second->Draw("same");
 
   Canvas->cd(2); 
   yz_view->Draw("colz");
   yz_box_FV->Draw("same");
   yz_box_Full->Draw("same");
   yz_Thin_Thick->Draw("same");
-  std::vector<TF1*> HoughLines_zy = TMS_TrackFinder::GetFinder().GetHoughLines_zy();
-  for (std::vector<TF1*>::iterator it = HoughLines_zy.begin(); it != HoughLines_zy.end(); ++it) (*it)->Draw("same");
+  for (auto i : HoughLines) if (i.first == false) i.second->Draw("same");
 
   Canvas->Print(CanvasName+".pdf");
 
