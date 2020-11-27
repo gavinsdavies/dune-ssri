@@ -160,18 +160,15 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
   }
 
   // Loop over the reconstructed tracks
-  std::vector<TMS_Hit> Candidates = TMS_TrackFinder::GetFinder().GetCandidates();
-  //std::vector<std::vector<TMS_Hit> > TotalCandidates = TMS_TrackFinder::GetFinder().GetTotalCandidates();
+  //std::vector<TMS_Hit> Candidates = TMS_TrackFinder::GetFinder().GetCandidates();
+  std::vector<std::vector<TMS_Hit> > TotalCandidates = TMS_TrackFinder::GetFinder().GetTotalCandidates();
 
-  //int iter = 0;
+  int iter = 0;
   // Loop over each total candidates
-  //for (std::vector<std::vector<TMS_Hit> >::iterator it = TotalCandidates.begin(); it != TotalCandidates.end(); ++it) {
-    //std::vector<TMS_Hit> Candidates = (*it);
+  for (std::vector<std::vector<TMS_Hit> >::iterator it = TotalCandidates.begin(); it != TotalCandidates.end(); ++it) {
+    std::vector<TMS_Hit> Candidates = (*it);
 
-    //double e = 3;
-    //if (iter == 0) e = 100;
-    //else e = 2;
-    double e = 4;
+    double e = 4.0;
     for (std::vector<TMS_Hit>::iterator jt = Candidates.begin(); jt != Candidates.end(); ++jt) {
 
       TMS_Bar bar = (*jt).GetBar();  
@@ -190,11 +187,10 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
       }
 
     }
-    //iter++;
-  //}
+    iter++;
+  }
 
-
-    // Get all the hough lines
+  // Get all the hough lines
   std::vector<std::pair<bool, TF1*> > HoughLines = TMS_TrackFinder::GetFinder().GetHoughLines();
   //std::cout << HoughLines.size() << std::endl;
 

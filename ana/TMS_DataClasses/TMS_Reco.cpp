@@ -1,16 +1,6 @@
 #include "TMS_Reco.h"
 
 TMS_TrackFinder::TMS_TrackFinder() :
-  /*
-  nTheta(2E3), // 1 degree accuracy
-  nRho(2E3), // Somewhat arbitrary: comes from checking overlays with events
-  RhoMin(-20E3),
-  RhoMax(20E3),
-  ThetaMin(0),
-  ThetaMax(2*M_PI),
-  ThetaWidth((ThetaMax-ThetaMin)/nTheta),
-  RhoWidth((RhoMax-RhoMin)/nRho),
-  */
 
   nIntercept(2E3),
   nSlope(2E3),
@@ -80,9 +70,17 @@ void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
   SpatialPrio(TMS_yz);
   SpatialPrio(TMS_xz);
 
-  for (int a = 0; a < 2; ++a) {
+  int nYZ_Hits_Start = TMS_yz.size();
+  int nXZ_Hits_Start = TMS_xz.size();
+  // We'll be moving out TMS_xz and TMS_yz and putting them into candidates
+  // Keep running successive Hough transforms until we've covered 80% of hits (allow for maximum 4 runs)
+  int nRuns = 0;
+  while (TMS_yz.size() > 0.2*nYZ_Hits_Start && TMS_xz.size() > 0.2*nXZ_Hits_Start && nRuns < 4) {
+
     std::vector<TMS_Hit> TMS_xz_cand;
     std::vector<TMS_Hit> TMS_yz_cand;
+    //if (TMS_xz.size() > 0 && TMS_xz.size() > 0.2*nXZ_Hits_Start) TMS_xz_cand = RunHough(TMS_xz);
+    //if (TMS_yz.size() > 0 && TMS_yz.size() > 0.2*nYZ_Hits_Start) TMS_yz_cand = RunHough(TMS_yz);
     if (TMS_xz.size() > 0) TMS_xz_cand = RunHough(TMS_xz);
     if (TMS_yz.size() > 0) TMS_yz_cand = RunHough(TMS_yz);
 
@@ -103,15 +101,17 @@ void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
         else it++;
       }
     }
+    // Push back the candidates into the total candidates
+    TotalCandidates.push_back(std::move(Candidates));
+    nRuns++;
   }
-
+  //std::cout << "Ran " << nRuns << " Hough transforms" << std::endl;
 }
 
 
 std::vector<TMS_Hit> TMS_TrackFinder::RunHough(const std::vector<TMS_Hit> &TMS_Hits) {
 
   bool IsXZ = ((TMS_Hits[0].GetBar()).GetBarType() == TMS_Bar::kYBar);
-  //std::cout << "is xz: " << IsXZ << std::endl;
 
   // Reset the accumulator
   for (int i = 0; i < nSlope; ++i) {
@@ -607,8 +607,8 @@ void TMS_TrackFinder::BestFirstSearch(const std::vector<TMS_Hit> &TMS_Hits) {
   SpatialPrio(TMS_xz);
 
   for (int a = 0; a < 2; ++a) {
-    std::cout << "yz = " << TMS_yz.size() << " before a = " << a << std::endl;
-    std::cout << "xz = " << TMS_xz.size() << " before a = " << a << std::endl;
+    //std::cout << "yz = " << TMS_yz.size() << " before a = " << a << std::endl;
+    //std::cout << "xz = " << TMS_xz.size() << " before a = " << a << std::endl;
     std::vector<TMS_Hit> AStarHits_yz;
     std::vector<TMS_Hit> AStarHits_xz;
 
@@ -636,8 +636,8 @@ void TMS_TrackFinder::BestFirstSearch(const std::vector<TMS_Hit> &TMS_Hits) {
         else it++;
       }
     }
-    std::cout << "yz = " << TMS_yz.size() << " after a = " << a << std::endl;
-    std::cout << "xz = " << TMS_xz.size() << " after a = " << a << std::endl;
+    //std::cout << "yz = " << TMS_yz.size() << " after a = " << a << std::endl;
+    //std::cout << "xz = " << TMS_xz.size() << " after a = " << a << std::endl;
   }
 }
 
