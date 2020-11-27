@@ -6,7 +6,7 @@ void GetFitLimit(double &minfit, double &maxfit, int type) {
     maxfit = 1.5;
   } else if (type == 2) {
     // 0.3-2 KE range
-    minfit = 0.3;
+    minfit = 0.2;
     maxfit = 2;
 
   } else if (type == 3) {
@@ -57,7 +57,11 @@ void makeplotsenergy_tmske_unified(std::string filename, int scinttype) {
   gErrorIgnoreLevel = kError;
 
   TFile *file = new TFile(filename.c_str());
-  TTree *tree = (TTree*)file->Get("tree");
+  //TTree *tree = (TTree*)file->Get("tree");
+  TChain *tree = new TChain("tree");
+  TString fileset = filename.c_str();
+  fileset = fileset(0,fileset.Last('/')+1);
+  tree->Add(fileset+"*FlatTree.root");
 
   int nEntries = tree->GetEntries();
 
@@ -75,6 +79,9 @@ void makeplotsenergy_tmske_unified(std::string filename, int scinttype) {
   float muScintEnergy;
   float muonExitKE;
   float TMSKE;
+  std::vector<float> *xpt = NULL;
+  std::vector<float> *ypt = NULL;
+  std::vector<float> *zpt = NULL;
 
   tree->SetBranchStatus("*", false);
   tree->SetBranchStatus("vtx", true);
@@ -104,7 +111,10 @@ void makeplotsenergy_tmske_unified(std::string filename, int scinttype) {
   tree->SetBranchStatus("rmmsKE", true);
   tree->SetBranchAddress("rmmsKE", &TMSKE);
 
-  std::vector<float> *zpt;
+  tree->SetBranchStatus("xpt", true);
+  tree->SetBranchAddress("xpt", &xpt);
+  tree->SetBranchStatus("ypt", true);
+  tree->SetBranchAddress("ypt", &ypt);
   tree->SetBranchStatus("zpt", true);
   tree->SetBranchAddress("zpt", &zpt);
 
@@ -158,16 +168,34 @@ void makeplotsenergy_tmske_unified(std::string filename, int scinttype) {
     if (muonReco == 2) nInTMS++;
 
     // Fiducial cut in TMS in z
+    if (muonBirth[2] > 735. || muonDeath[2] > 1365. || 
+        muonDeath[1] > 87-50. || muonDeath[1] < -234+50. ||
+        abs(muonDeath[0]) > 160. || abs(muonDeath[0]) < 10 ||
+        muonExitKE <= 0 ) continue;
+    /*
     if (muonBirth[2] > 733. || muonDeath[2] > 1375. || 
         muonDeath[1] > 25.+50. || muonDeath[1] < -260.+50. ||
         abs(muonDeath[0]) > 300. ||
         muonExitKE <= 0 ||
         abs(muonDeath[0]) > 165. || abs(muonDeath[0]) < 10. ) continue;
+        */
+
+    int nhits = (*xpt).size();
+    bool bad = false;
+    for (int j = 0; j < nhits; ++j) {
+      double x = (*xpt)[j];
+      if (fabs(x) > 160) {
+        bad=true;
+        break;
+      }
+    }
+    if (bad) continue;
+
     //abs(muonDeath[0]) < 190. ) continue;
     //if (muonReco == 0) std::cout << "AAAAAH" << std::endl;
 
     // Recalculate the scintillation length
-    muScintLen -= 24.35;
+    //muScintLen -= 24.35;
     // Calculate costheta by taking LAr vertex
     double xdist = muonExitPt[0]-vtx[0];
     double ydist = muonExitPt[1]-vtx[1];
@@ -183,11 +211,11 @@ void makeplotsenergy_tmske_unified(std::string filename, int scinttype) {
     double dist2 = sqrt(xdist2*xdist2+ydist2*ydist2+zdist2*zdist2);
     double costheta2 = fabs(zdist2/dist2);
 
-    // don't add this for TMS estimator
-    //muScintLen += 24.35/costheta2;
+    // this has already been added in, so now need to remove it
+    muScintLen -= 24.35/costheta2;
     // Then also add in the first layer of steel that is missing
     // Also account for angle
-    muScintLen += 1.5*7.85/costheta2;
+    muScintLen -= 1.5*7.85/costheta2;
 
     double dedx_total = muScintEnergy/muScintLen;
 
@@ -209,7 +237,7 @@ void makeplotsenergy_tmske_unified(std::string filename, int scinttype) {
       distthin = 949-muonBirth[2];
       distthick = muonDeath[2]-949;
       // Add the transition plane
-      nplanes = distthin/5.5. + distthick/8. + 2;
+      nplanes = distthin/5.5 + distthick/8. + 2;
       nplanes_thick = distthick/8.;
       nplanes_thin = distthin/5.5;
       //std::cout << " nplanes thin: " << distthin/5.5 << std::endl;
@@ -259,7 +287,7 @@ void makeplotsenergy_tmske_unified(std::string filename, int scinttype) {
 
   TCanvas *canv = new TCanvas("canv", "canv", 1024, 1024);
   TString canvname = filename.c_str();
-  canvname.ReplaceAll(".root", "muonKEest_xtratrackfix_uni_tmsKE");
+  canvname.ReplaceAll(".root", "muonKEest_notrackfixinscript_uni_tmsKE");
   canvname += Form("_type%i", type);
 
   std::cout << canvname << std::endl;
@@ -389,14 +417,31 @@ void makeplotsenergy_tmske_unified(std::string filename, int scinttype) {
     if (muonReco == 2) nInTMS++;
 
     // Fiducial cut in TMS in z
+    /*
     if (muonBirth[2] > 733. || muonDeath[2] > 1375. || 
         muonDeath[1] > 25.+50. || muonDeath[1] < -260.+50. ||
         abs(muonDeath[0]) > 300. ||
         muonExitKE <= 0 ||
         abs(muonDeath[0]) > 165. || abs(muonDeath[0]) < 10. ) continue;
+    */
+    if (muonBirth[2] > 735. || muonDeath[2] > 1365. || 
+        muonDeath[1] > 87-50. || muonDeath[1] < -234+50. ||
+        abs(muonDeath[0]) > 160. || abs(muonDeath[0]) < 10. ||
+        muonExitKE <= 0 ) continue;
 
+    int nhits = (*xpt).size();
+    bool bad = false;
+    for (int j = 0; j < nhits; ++j) {
+      double x = (*xpt)[j];
+      if (fabs(x) > 160) {
+        bad=true;
+        break;
+      }
+    }
+    if (bad) continue;
     // Need to shift the scintillator length again
-    muScintLen -= 24.35;
+    
+    //muScintLen -= 24.35;
     // Or calculate from exit point in LAr vs birth point in TMS (seems better?)
     double xdist2 = muonBirth[0]-muonExitPt[0];
     double ydist2 = muonBirth[1]-muonExitPt[1];
@@ -404,10 +449,11 @@ void makeplotsenergy_tmske_unified(std::string filename, int scinttype) {
     double dist2 = sqrt(xdist2*xdist2+ydist2*ydist2+zdist2*zdist2);
     double costheta2 = fabs(zdist2/dist2);
 
-    //muScintLen += 24.35/costheta2;
+    muScintLen -= 24.35/costheta2;
     // Then also add in the first layer of steel that is missing
     // Also account for angle
-    muScintLen += 1.5*7.85/costheta2;
+    muScintLen -= 1.5*7.85/costheta2;
+
     muonExitKE=TMSKE;
 
     double KEestimator = (muScintLen-intercept)/slope;
@@ -487,4 +533,22 @@ void makeplotsenergy_tmske_unified(std::string filename, int scinttype) {
   canv->Print(canvname+".pdf");
 
   canv->Print(canvname+".pdf]");
+
+  TFile *output = new TFile(canvname+".root", "recreate");
+  output->cd();
+  ScintLenvsKE->Write();
+  KEvsCrudeKE->Write();
+  KEExitvsKEEnt->Write();
+  kedist->Write();
+  GaussEst->Write();
+  ArithEst->Write();
+  fitting->Write();
+  fitting2->Write();
+  fitting3->Write();
+
+  KEestvsKE->Write();
+  ke_est->Write();
+  ke_bias->Write();
+  KEestvsScintEn->Write();
+  output->Close();
 }

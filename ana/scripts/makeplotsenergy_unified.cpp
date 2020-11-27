@@ -95,6 +95,9 @@ void makeplotsenergy_unified(std::string filename, int scinttype) {
   float muScintEnergy;
   float muonExitKE;
   float TMSKE;
+  std::vector<float> *xpt = NULL;
+  std::vector<float> *ypt = NULL;
+  std::vector<float> *zpt = NULL;
 
   tree->SetBranchStatus("*", false);
   tree->SetBranchStatus("vtx", true);
@@ -124,9 +127,12 @@ void makeplotsenergy_unified(std::string filename, int scinttype) {
   tree->SetBranchStatus("rmmsKE", true);
   tree->SetBranchAddress("rmmsKE", &TMSKE);
 
-  //std::vector<float> *zpt;
-  //tree->SetBranchStatus("zpt", true);
-  //tree->SetBranchAddress("zpt", &zpt);
+  tree->SetBranchStatus("xpt", true);
+  tree->SetBranchAddress("xpt", &xpt);
+  tree->SetBranchStatus("ypt", true);
+  tree->SetBranchAddress("ypt", &ypt);
+  tree->SetBranchStatus("zpt", true);
+  tree->SetBranchAddress("zpt", &zpt);
 
   tree->SetBranchStatus("muonReco", true);
   tree->SetBranchAddress("muonReco", &muonReco);
@@ -178,11 +184,29 @@ void makeplotsenergy_unified(std::string filename, int scinttype) {
     if (muonReco == 2) nInTMS++;
 
     // Fiducial cut in TMS in z
+    if (muonBirth[2] > 735. || muonDeath[2] > 1365. || 
+        muonDeath[1] > 87-50. || muonDeath[1] < -234+50. ||
+        abs(muonDeath[0]) > 160. || abs(muonDeath[0]) < 10 ||
+        muonExitKE <= 0 ) continue;
+    /*
     if (muonBirth[2] > 733. || muonDeath[2] > 1375. || 
         muonDeath[1] > 25.+50. || muonDeath[1] < -260.+50. ||
         abs(muonDeath[0]) > 300. ||
         muonExitKE <= 0 ||
         abs(muonDeath[0]) > 165. || abs(muonDeath[0]) < 10. ) continue;
+        */
+
+    int nhits = (*xpt).size();
+    bool bad = false;
+    for (int j = 0; j < nhits; ++j) {
+      double x = (*xpt)[j];
+      if (fabs(x) > 160) {
+        bad=true;
+        break;
+      }
+    }
+    if (bad) continue;
+
     //abs(muonDeath[0]) < 190. ) continue;
     //if (muonReco == 0) std::cout << "AAAAAH" << std::endl;
 
@@ -409,12 +433,28 @@ void makeplotsenergy_unified(std::string filename, int scinttype) {
     if (muonReco == 2) nInTMS++;
 
     // Fiducial cut in TMS in z
+    /*
     if (muonBirth[2] > 733. || muonDeath[2] > 1375. || 
         muonDeath[1] > 25.+50. || muonDeath[1] < -260.+50. ||
         abs(muonDeath[0]) > 300. ||
         muonExitKE <= 0 ||
         abs(muonDeath[0]) > 165. || abs(muonDeath[0]) < 10. ) continue;
+    */
+    if (muonBirth[2] > 735. || muonDeath[2] > 1365. || 
+        muonDeath[1] > 87-50. || muonDeath[1] < -234+50. ||
+        abs(muonDeath[0]) > 160. || abs(muonDeath[0]) < 10. ||
+        muonExitKE <= 0 ) continue;
 
+    int nhits = (*xpt).size();
+    bool bad = false;
+    for (int j = 0; j < nhits; ++j) {
+      double x = (*xpt)[j];
+      if (fabs(x) > 160) {
+        bad=true;
+        break;
+      }
+    }
+    if (bad) continue;
     // Need to shift the scintillator length again
     /*
     muScintLen -= 24.35;
