@@ -1,3 +1,6 @@
+#ifndef _BETHEBLOCH_H_SEEN_
+#define _BETHEBLOCH_H_SEEN_
+
 #include <cmath>
 
 // Almost entirely from the PDG
@@ -292,6 +295,26 @@ class BetheBloch_Calculator {
       return de_dx; // in MeV/(gr/cm^2)
     }
 
+    // Calculate the ionsiation for muons in Bethe Bloch in MeV/(gr/cm2)
+    // Gaussian CLT
+    inline double Calc_dEdx_Straggling(double E) {
+      // z over A
+      double Z_A = fMaterial.Z_A;
+      double beta = BetheBloch_Utils::RelativisticBeta(BetheBloch_Utils::Mm, E);
+      double beta_2 = beta*beta;
+      double Em = BetheBloch_Utils::MaximumEnergyTransfer(E);
+      double E_2 = E*E;
+      double thick = 1.0;
+      double thickness_den = fMaterial.rho * thick;
+
+      double Xi = (BetheBloch_Utils::K/2*Z_A*1/beta_2)*thickness_den;
+      double kappa = Xi/Em;
+      double sigma = Xi*sqrt(1-beta_2)/2*kappa;
+
+      return sigma;
+    }
+
+
     // Calculate the ionsiation for muons in Bethe Bloch MeV/(gr/cm2)
     // eq 34.12 pdg
     inline double Calc_dEdx_mostprob(double E) {
@@ -326,4 +349,4 @@ class BetheBloch_Calculator {
     Material fMaterial;
 };
 
-
+#endif
