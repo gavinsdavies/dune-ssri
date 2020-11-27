@@ -63,6 +63,7 @@ bool TMS_Bar::FindModules(double xval, double yval, double zval) {
         std::cerr << "width of " << NodeName << " not as expected!" << std::endl;
         std::cerr << "xwidth: " << xw << std::endl;
         std::cerr << "zwidth: " << zw << std::endl;
+        throw;
       }
 
       for (int i = 0; i < 3; ++i) Translation[i] = geom->GetCurrentMatrix()->GetTranslation()[i];
@@ -114,6 +115,9 @@ bool TMS_Bar::FindModules(double xval, double yval, double zval) {
     y = -99999000;
     z = -99999000;
   }
+
+  // Reset the geom navigator node level in case it's used again
+  geom->FindNode(xval,yval,zval);
 
   return true;
 }
