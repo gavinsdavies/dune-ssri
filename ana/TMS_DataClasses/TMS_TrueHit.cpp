@@ -36,7 +36,7 @@ TMS_TrueHit::TMS_TrueHit(TG4HitSegment &edep_seg) {
   PrimaryId = edep_seg.GetPrimaryId();
 }
 
-void TMS_TrueHit::Print() {
+void TMS_TrueHit::Print() const {
   std::cout << "TMS_TrueHit: " << std::endl;
   std::cout << "(x,y,z,t,E): (" << GetX() << ", " << GetY() << ", " << GetZ() << ", " << GetT() << ", " << GetE() << ")" << std::endl;
   std::cout << "PrimaryId: " << PrimaryId  << std::endl;

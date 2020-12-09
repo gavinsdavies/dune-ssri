@@ -14,11 +14,11 @@ class TMS_TrueHit {
   public:
     TMS_TrueHit(TG4HitSegment &edep_seg);
 
-    double GetX() {return x;};
-    double GetY() {return y;};
-    double GetZ() {return z;};
-    double GetT() {return t;};
-    double GetE() {return EnergyDeposit; };
+    double GetX() const {return x;};
+    double GetY() const {return y;};
+    double GetZ() const {return z;};
+    double GetT() const {return t;};
+    double GetE() const {return EnergyDeposit; };
 
     void SetX(double pos) {x = pos;};
     void SetY(double pos) {y = pos;};
@@ -26,7 +26,7 @@ class TMS_TrueHit {
     void SetT(double pos) {t = pos;};
     void SetE(double E) {EnergyDeposit = E;};
 
-    void Print();
+    void Print() const;
 
   private:
     double x;
