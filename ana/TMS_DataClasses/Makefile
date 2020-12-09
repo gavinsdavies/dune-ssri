@@ -7,9 +7,10 @@ ROOT_LIBS = $(shell root-config --evelibs)
 ROOT_INC = $(shell root-config --cflags)
 
 EDEP_LIBS = -L $(EDEP_SIM)/lib -ledepsim_io
-EDEP_INC = -I$(EDEP_SIM)/include
+# Need CLHEP for unit conversion, can probably just move this into a standalone header to remove dependency?
+EDEP_INC = -I$(EDEP_SIM)/include -I$(CLHEP_INC)
 
-CXXFLAGS = -Wall -Og -g -fPIC -Werror
+CXXFLAGS = -Wall -O3 -g -fPIC -Werror
 CXXFLAGS += $(ROOT_INC) $(EDEP_INC)
 
 # Replace and create
@@ -24,7 +25,7 @@ BUILD_FLAGS = -Wl,-R -Wl,.
 # Our lovely collection of libs
 LIB_OBJ = $(EDEP_LIBS) $(ROOT_LIBS)
 
-TMS_OBJ = TMS_Bar.o TMS_Hit.o TMS_TrueHit.o TMS_Event.o TMS_TrueParticle.o TMS_EventViewer.o TMS_Reco.o
+TMS_OBJ = TMS_Bar.o TMS_Hit.o TMS_TrueHit.o TMS_Event.o TMS_TrueParticle.o TMS_EventViewer.o TMS_Reco.o TMS_Kalman.o
 
 %.o:%.cpp
 	$(CXX) -c $(CXXFLAGS) $<
