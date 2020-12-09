@@ -54,6 +54,25 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
 
   // Hough
   HoughTransform(TMS_Hits);
+
+  // For future probably want to move track candidates into the TMS_Event class
+
+  // Now have the TotalCandidates filled
+  // Start some reconstruction chain
+  
+  std::cout << "N tracks: " << TotalCandidates.size() << std::endl;
+
+  for (auto &i : TotalCandidates) {
+    // Get the xz and yz hits
+    std::vector<TMS_Hit> xz_hits = ProjectHits(i, TMS_Bar::kYBar);
+    std::cout << "xz hits: " << xz_hits.size() << std::endl;
+    KalmanFitter = TMS_Kalman(xz_hits);
+
+    std::vector<TMS_Hit> yz_hits = ProjectHits(i, TMS_Bar::kXBar);
+    std::cout << "yz hits: " << yz_hits.size() << std::endl;
+    KalmanFitter = TMS_Kalman(yz_hits);
+  }
+
 }
 
 void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
@@ -83,6 +102,10 @@ void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
     //if (TMS_yz.size() > 0 && TMS_yz.size() > 0.2*nYZ_Hits_Start) TMS_yz_cand = RunHough(TMS_yz);
     if (TMS_xz.size() > 0) TMS_xz_cand = RunHough(TMS_xz);
     if (TMS_yz.size() > 0) TMS_yz_cand = RunHough(TMS_yz);
+
+    // Then order them in z
+    SpatialPrio(TMS_xz_cand);
+    SpatialPrio(TMS_yz_cand);
 
     for (auto &i : TMS_xz_cand) Candidates.push_back(std::move(i));
     for (auto &i : TMS_yz_cand) Candidates.push_back(std::move(i));
@@ -616,6 +639,10 @@ void TMS_TrackFinder::BestFirstSearch(const std::vector<TMS_Hit> &TMS_Hits) {
     // We can save where this happens in z and make the yz reconstruction aware of the gap
     if (TMS_xz.size() > 0) AStarHits_xz = RunAstar(TMS_xz);
     if (TMS_yz.size() > 0) AStarHits_yz = RunAstar(TMS_yz);
+
+    // Then order them in z
+    SpatialPrio(AStarHits_xz);
+    SpatialPrio(AStarHits_yz);
 
     // Copy over to the candidates
     for (auto &i : AStarHits_yz) Candidates.push_back(std::move(i));
