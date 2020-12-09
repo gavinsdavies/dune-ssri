@@ -46,7 +46,7 @@ class TMS_Hit {
     const TMS_TrueParticle &GetTrueParticle() const;
 
     // The true hit
-    const TMS_TrueHit &GetTrueHit() const;
+    const TMS_TrueHit &GetTrueHit() const { return TrueHit; };
 
     // Over-riders (maybe delete in future)
     void SetTrueParticle(TMS_TrueParticle part) {TrueParticle = part;};
