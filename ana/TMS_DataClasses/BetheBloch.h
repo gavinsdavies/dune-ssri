@@ -145,10 +145,8 @@ class BetheBloch_Calculator {
       double beta = BetheBloch_Utils::RelativisticBeta(BetheBloch_Utils::Mm, E);
       double beta_2 = beta*beta;
       double Em = BetheBloch_Utils::MaximumEnergyTransfer(E);
-      double thick = 1.0;
-      double thickness_den = fMaterial.rho * thick;
 
-      double Xi = (BetheBloch_Utils::K/2*Z_A*1/beta_2)*thickness_den;
+      double Xi = ((BetheBloch_Utils::K/2)*Z_A/beta_2);
       double kappa = Xi/Em;
       double sigma = Xi*sqrt(1-beta_2)/2*kappa;
 
