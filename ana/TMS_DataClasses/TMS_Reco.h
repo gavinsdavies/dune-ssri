@@ -16,6 +16,9 @@
 #include "TMS_Hit.h"
 #include "TMS_Event.h"
 
+// Hand over to the Kalman reconstruction once we find tracks
+#include "TMS_Kalman.h"
+
 // Utility class struct to store the node for track finding using A* or Best-First
 class aNode {
   public:
@@ -130,6 +133,8 @@ class TMS_TrackFinder {
     TMS_TrackFinder();
     TMS_TrackFinder(TMS_TrackFinder const &) = delete;
     void operator=(TMS_TrackFinder const &) = delete;
+
+    TMS_Kalman KalmanFitter;
 
     int FindBin(double Rho);
     // The candidates for each particle
