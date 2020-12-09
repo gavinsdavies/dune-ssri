@@ -9,6 +9,7 @@
 
 #include "TVector3.h"
 
+#include "CLHEP/Units/SystemOfUnits.h"
 
 // Define the TMS geometry singleton
 class TMS_Geom {
@@ -39,6 +40,7 @@ class TMS_Geom {
     void SetGeometry(TGeoManager *geometry) {
       geom = geometry;
       std::cout << "Global geometry set to " << geometry->GetName() << std::endl;
+      geom->LockGeometry();
     }
 
     void SetFileName(std::string filename) {
@@ -68,7 +70,7 @@ class TMS_Geom {
       // Walk through until we're in the same volume as our final point
       while (!geom->IsSameLocation(point2.X(), point2.Y(), point2.Z())) {
         // Get the material of the current point
-        TGeoMaterial *mat = geom->GetCurrentVolume()->GetMedium()->GetMaterial();
+        TGeoMaterial *mat = geom->GetCurrentNode()->GetMedium()->GetMaterial();
         // Step into the next volume
         geom->FindNextBoundaryAndStep();
         // How big was the step
@@ -77,6 +79,15 @@ class TMS_Geom {
         std::pair<TGeoMaterial*, double> temp(mat, snext);
         Materials.push_back(temp);
         total += snext;
+        // Check the total
+        // Detector is roughly 7 meters: 10 times this and something has gone wrong!
+        if (total > 7*1000*10) break;
+      }
+
+      if (total > 7*1000*10) {
+        std::cerr << "Very long distance between points: " << total << std::endl;
+        Materials.clear();
+        return Materials;
       }
 
       // Then finally add in the last material too
@@ -87,7 +98,7 @@ class TMS_Geom {
       // Change the point to get the material
       geom->SetCurrentPoint(point2.X(), point2.Y(), point2.Z());
       // Update material
-      TGeoMaterial *mat = geom->GetCurrentVolume()->GetMedium()->GetMaterial();
+      TGeoMaterial *mat = geom->GetCurrentNode()->GetMedium()->GetMaterial();
       std::pair<TGeoMaterial*, double> mypair(mat, extra);
       Materials.push_back(mypair);
       
