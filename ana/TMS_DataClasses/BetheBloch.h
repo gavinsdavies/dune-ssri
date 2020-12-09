@@ -2,6 +2,10 @@
 #define _BETHEBLOCH_H_SEEN_
 
 #include <cmath>
+#include <string>
+#include <iostream>
+
+#include "Material.h"
 
 // Almost entirely from the PDG
 // and pdg.lbl.gov/AtomicNuclearProperties
@@ -66,166 +70,6 @@ namespace BetheBloch_Utils {
 
     return 2 * me * p_2 / ( me_2 + mm_2 + 2*me*E );
   }
-
-};
-
-
-// Generic material class
-// Only support iron and polystyrene for now
-// Taken right from LBL and PDG
-class Material {
-
-  public:
-
-    enum MaterialType { kPolyStyrene, kIron, kGraphite, kGArgon, kLArgon, kWater, kUnknown };
-
-    std::string MaterialName() {
-
-      switch (fMaterialType) {
-        case kPolyStyrene:
-          return "Polystyrene";
-          break;
-
-        case kIron:
-          return "Iron";
-          break;
-
-        case kGraphite:
-          return "Graphite";
-          break;
-
-        case kGArgon:
-          return "GAr";
-          break;
-
-        case kLArgon:
-          return "LAr";
-          break;
-
-        case kWater:
-          return "H_{2}O";
-          break;
-
-
-        default:
-          return "unknown";
-          break;
-      }
-
-      return "unknown";
-    }
-
-    Material(MaterialType type) {
-      fMaterialType = type;
-
-      switch (type) {
-        // Polystyrene: https://pdg.lbl.gov/2020/AtomicNuclearProperties/MUE/muE_polystyrene.pdf
-        case kPolyStyrene:
-          Z_A = 0.53768;
-          rho = 1.060;
-          I = 68.7;
-          a = 0.16454;
-          m = 3.2224;
-          x0 = 0.1647;
-          x1 = 2.5031;
-          Cbar = 3.2999;
-          d0 = 0.00;
-          break;
-
-          // Iron: https://pdg.lbl.gov/2020/AtomicNuclearProperties/MUE/muE_iron_Fe.pdf
-        case kIron:
-          Z_A = 26/55.845;
-          rho = 7.874;
-          I = 286.0;
-          a = 0.14680;
-          m = 2.9632;
-          x0 = -0.0012;
-          x1 = 3.1531;
-          Cbar = 4.2911;
-          d0 = 0.12;
-          break;
-
-          // Graphite
-          // https://pdg.lbl.gov/2020/AtomicNuclearProperties/MUE/muE_carbon_graphite_C.pdf
-        case kGraphite:
-          Z_A = 6/12.0107;
-          rho = 2.210;
-          I = 78.0;
-          a = 0.20762;
-          m = 2.9532;
-          x0 = -0.0090;
-          x1 = 2.4817;
-          Cbar = 2.8926;
-          d0 = 0.14;
-          break;
-
-          // Gaseous Argon
-          // https://pdg.lbl.gov/2020/AtomicNuclearProperties/MUE/muE_argon_gas_Ar.pdf
-        case kGArgon:
-          Z_A = 18/39.948;
-          rho = 1.662E-3;
-          I = 188;
-          a = 0.19714;
-          m = 2.9618;
-          x0 = 1.7635;
-          x1 = 4.4855;
-          Cbar = 11.9480;
-          d0 = 0.00;
-          break;
-
-          // Liquid Argon
-          // https://pdg.lbl.gov/2020/AtomicNuclearProperties/MUE/muE_liquid_argon.pdf
-        case kLArgon:
-          Z_A = 18/39.948;
-          rho = 1.396;
-          I = 188;
-          a = 0.19559;
-          m = 3.0000;
-          x0 = 0.2000;
-          x1 = 3.0000;
-          Cbar = 5.2146;
-          d0 = 0.00;
-          break;
-
-          // Liquid water
-          // https://pdg.lbl.gov/2020/AtomicNuclearProperties/MUE/muE_water_liquid.pdf
-        case kWater:
-          Z_A = 0.55509;
-          rho = 1.000;
-          I = 79.7;
-          a = 0.09116;
-          m = 3.4773;
-          x0 = 0.2400;
-          x1 = 2.8004;
-          Cbar = 3.5017;
-          d0 = 0.00;
-          break;
-
-
-        default:
-          std::cerr << "Material not supported" << std::endl;
-          throw;
-      }
-    }
-
-    // Z/A
-    double Z_A;
-    // Ionisation
-    double I; // eV
-    // density
-    double rho; // g/cm3
-
-    // Numbers for density correction factors to Bethe
-    double x0;
-    double x1;
-    double a;
-    double m;
-    double Cbar;
-    double d0;
-
-    MaterialType fMaterialType;
-
-
 };
 
 class BetheBloch_Calculator {
@@ -280,8 +124,6 @@ class BetheBloch_Calculator {
       double I = fMaterial.I * 1E-6; //286E-6; // 286 eV -> 286E-6 in MeV
       double I_2 = I*I;
       double Em = BetheBloch_Utils::MaximumEnergyTransfer(E);
-      double Em_2 = Em*Em;
-      double E_2 = E*E;
       double d = DensityCorrectionFactor(E);
 
       // K = 4pi NA re2 me c2
@@ -303,7 +145,6 @@ class BetheBloch_Calculator {
       double beta = BetheBloch_Utils::RelativisticBeta(BetheBloch_Utils::Mm, E);
       double beta_2 = beta*beta;
       double Em = BetheBloch_Utils::MaximumEnergyTransfer(E);
-      double E_2 = E*E;
       double thick = 1.0;
       double thickness_den = fMaterial.rho * thick;
 
@@ -326,7 +167,6 @@ class BetheBloch_Calculator {
       double gamma_2 = gamma*gamma;
       // Ionisation from PDG
       double I = fMaterial.I*1E-6; //286E-6; // 286 eV -> 286E-6 in MeV
-      double E_2 = E*E;
       double d = DensityCorrectionFactor(E);
 
       // Set some thickness
