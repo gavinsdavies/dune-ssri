@@ -100,7 +100,7 @@ void TMS_Kalman::Predict(TMS_Hit &hit1, TMS_Hit &hit2) {
     std::cout << "energy before: " << en << std::endl;
     // Subtract off the energy loss for this material
     if (ForwardFitting) en -= Bethe.Calc_dEdx(en)*density*thickness;
-    else en += Bethe.Calc_dEdx(en)*density*thickness;
+    else                en += Bethe.Calc_dEdx(en)*density*thickness;
     std::cout << "energy after: " << en << std::endl;
 
     // Updated momentum squared based on the energy loss
@@ -112,10 +112,9 @@ void TMS_Kalman::Predict(TMS_Hit &hit1, TMS_Hit &hit2) {
     //FutureState.qp = 1./momup;
 
     // Variance assuming Gaussian straggling
-    double en_var = Bethe.Calc_dEdx_Straggling(en);
-    en_var *= en_var;
-    total_en_var += en_var;
-    std::cout << "energy var: " << en_var << std::endl;
+    double en_var = Bethe.Calc_dEdx_Straggling(en)*density*thickness;
+    total_en_var += en_var*en_var;
+    std::cout << "energy var: " << en_var*en_var << std::endl;
 
     // Set the material for the multiple scattering
     MSC.fMaterial = matter;
