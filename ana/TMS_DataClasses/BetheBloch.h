@@ -113,6 +113,7 @@ class BetheBloch_Calculator {
     }
 
     // Calculate the ionsiation for muons in Bethe Bloch in MeV/(gr/cm2)
+    // Eq 34.5 of PDG 2020
     inline double Calc_dEdx(double E) {
       // z over A
       double Z_A = fMaterial.Z_A;
@@ -126,8 +127,10 @@ class BetheBloch_Calculator {
       double Em = BetheBloch_Utils::MaximumEnergyTransfer(E);
       double d = DensityCorrectionFactor(E);
 
+      double eps = (BetheBloch_Utils::K)*Z_A/beta_2; // convenient prefactor
+
       // K = 4pi NA re2 me c2
-      double de_dx = BetheBloch_Utils::K * Z_A * (1/beta_2) *
+      double de_dx = eps *
         (0.5*log( 2*BetheBloch_Utils::Me*beta_2*gamma_2*Em/I_2 ) - beta_2 - 0.5*d );
 
       // Correction term in Groom not present in PDG
@@ -139,6 +142,8 @@ class BetheBloch_Calculator {
 
     // Calculate the ionsiation for muons in Bethe Bloch in MeV/(gr/cm2)
     // Gaussian CLT
+    // Equation 2.96 of William R Leo - Technques for Nuclear and Particle Physics
+    // and ICRU Report 49
     inline double Calc_dEdx_Straggling(double E) {
       // z over A
       double Z_A = fMaterial.Z_A;
@@ -148,7 +153,7 @@ class BetheBloch_Calculator {
 
       double Xi = ((BetheBloch_Utils::K/2)*Z_A/beta_2);
       double kappa = Xi/Em;
-      double sigma = Xi*sqrt(1-beta_2)/2*kappa;
+      double sigma = Xi*sqrt( (1-beta_2)/(2*kappa) ); // eq 2.96 of Leo
 
       return sigma;
     }
@@ -156,6 +161,7 @@ class BetheBloch_Calculator {
 
     // Calculate the ionsiation for muons in Bethe Bloch MeV/(gr/cm2)
     // eq 34.12 pdg
+    // Also eq 2.95 in Leo Techniques for Nuclear and Particle Physics
     inline double Calc_dEdx_mostprob(double E) {
       // z over A
       double Z_A = fMaterial.Z_A;
@@ -170,10 +176,11 @@ class BetheBloch_Calculator {
       // Set some thickness
       //const double thick = 1./7.85; // thickness in g/cm2 -> try 1cm with 7.85 g/cm3 density
       //const double thick = 7.85;
-      const double thick = fMaterial.rho * 1; // 1 cm of material
+      //const double thick = fMaterial.rho * 1; // 1 cm of material
       const double j = 0.200; // from pdg
 
-      double eps = (BetheBloch_Utils::K/2)*Z_A*thick/beta_2; // convenient
+      //double eps = (BetheBloch_Utils::K/2)*Z_A*thick/beta_2; // convenient
+      double eps = (BetheBloch_Utils::K/2)*Z_A/beta_2; // convenient
 
       double de_dx = eps *
         (log( 2*BetheBloch_Utils::Me*beta_2*gamma_2/I ) + log(eps/I) + j - beta_2 - d );
