@@ -94,8 +94,11 @@ bool TMS_Bar::FindModules(double xval, double yval, double zval) {
   }
 
   // Set the width and orientation of the bar
+  /*
   if (PlaneNumber % 2 == 0) BarOrient = kXBar;
   else BarOrient = kYBar;
+  */
+  BarOrient = kYBar;
 
   // If this is a y-bar, remove the y coordinate
   if (BarOrient == kXBar) {
