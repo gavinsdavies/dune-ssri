@@ -16,7 +16,8 @@ DrawTrackFinding(false)
   const double ymin = (-250+TMS_Const::TMS_Det_Offset[1])*10;
   const double ymax = (100+TMS_Const::TMS_Det_Offset[1])*10;
   // Scint bars are 4 by 1 cm
-  const int nbinsz = ((zmax-zmin)/10)/5;
+  //const int nbinsz = ((zmax-zmin)/10)/5;
+  const int nbinsz = ((zmax-zmin)/10)/2;
   const int nbinsx = ((xmax-xmin)/10)/3;
   const int nbinsy = ((ymax-ymin)/10)/3;
 
@@ -26,8 +27,8 @@ DrawTrackFinding(false)
 
   xz_view->SetMinimum(-0.01);
   yz_view->SetMinimum(-0.01);
-  xz_view->SetMaximum(4);
-  yz_view->SetMaximum(4);
+  xz_view->SetMaximum(10);
+  yz_view->SetMaximum(10);
 
   yz_view->GetZaxis()->SetTitleOffset(yz_view->GetZaxis()->GetTitleOffset()*1.2);
   xz_view->GetZaxis()->SetTitleOffset(xz_view->GetZaxis()->GetTitleOffset()*1.2);
@@ -44,11 +45,11 @@ DrawTrackFinding(false)
 
   // The canvas
   Canvas = new TCanvas("TMS_EventViewer", "TMS_EventViewer", 1024, 1024);
-  Canvas->Divide(2);
+  //Canvas->Divide(2);
   Canvas->cd(1)->SetLeftMargin(Canvas->GetLeftMargin()*1.2);
-  Canvas->cd(2)->SetLeftMargin(Canvas->GetLeftMargin()*1.2);
+  //Canvas->cd(2)->SetLeftMargin(Canvas->GetLeftMargin()*1.2);
   Canvas->cd(1)->SetRightMargin(Canvas->GetRightMargin()*1.5);
-  Canvas->cd(2)->SetRightMargin(Canvas->GetRightMargin()*1.5);
+  //Canvas->cd(2)->SetRightMargin(Canvas->GetRightMargin()*1.5);
 
   // Full view from inspecting all hits
   xz_box_Full = new TBox((730+TMS_Const::TMS_Det_Offset[2])*10,
@@ -118,7 +119,7 @@ DrawTrackFinding(false)
   yz_Thin_Thick->SetLineStyle(kDashed);
 
   // Open up the pdf
-  CanvasName = "TMS_EventViewer_Collection_Hough";
+  CanvasName = "TMS_EventViewer_Collection_Hough_xzonly_hough";
   Canvas->Print(CanvasName+".pdf[");
 }
 
@@ -168,7 +169,8 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
   for (std::vector<std::vector<TMS_Hit> >::iterator it = TotalCandidates.begin(); it != TotalCandidates.end(); ++it) {
     std::vector<TMS_Hit> Candidates = (*it);
 
-    double e = 4.0;
+    double e = 10.0;
+    //std::cout << "size when drwaing candidates: " << Candidates.size() << std::endl;
     for (std::vector<TMS_Hit>::iterator jt = Candidates.begin(); jt != Candidates.end(); ++jt) {
 
       TMS_Bar bar = (*jt).GetBar();  
@@ -205,12 +207,14 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
   xz_Thin_Thick->Draw("same");
   for (auto i : HoughLines) if (i.first == true) i.second->Draw("same");
 
+  /*
   Canvas->cd(2); 
   yz_view->Draw("colz");
   yz_box_FV->Draw("same");
   yz_box_Full->Draw("same");
   yz_Thin_Thick->Draw("same");
   for (auto i : HoughLines) if (i.first == false) i.second->Draw("same");
+  */
 
   Canvas->Print(CanvasName+".pdf");
 
