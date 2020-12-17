@@ -6,7 +6,6 @@
 // Include the constants
 #include "TMS_Constants.h"
 #include "TMS_Bar.h"
-#include "TMS_TrueParticle.h"
 #include "TMS_TrueHit.h"
 // To get the geometry
 #include "TMS_Geom.h"
@@ -42,14 +41,10 @@ class TMS_Hit {
       return ( a.GetT() < b.GetT() );
     }
 
-    // The true particle that created this hit
-    const TMS_TrueParticle &GetTrueParticle() const;
-
     // The true hit
     const TMS_TrueHit &GetTrueHit() const { return TrueHit; };
 
     // Over-riders (maybe delete in future)
-    void SetTrueParticle(TMS_TrueParticle part) {TrueParticle = part;};
     void SetTrueHit(TMS_TrueHit hit) {TrueHit = hit;};
 
     void SetE(double E) {EnergyDeposit = E;};
@@ -74,7 +69,6 @@ class TMS_Hit {
     // The true hit (x,y,z,t) --- does not quantise hit into bars
     TMS_TrueHit TrueHit;
     // The true particle that created this hit
-    TMS_TrueParticle TrueParticle;
     // The bar that registered the hit
     TMS_Bar Bar;
     // The energy deposited
