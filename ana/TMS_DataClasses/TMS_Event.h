@@ -9,6 +9,7 @@
 #include "TMS_Constants.h"
 #include "TMS_Hit.h"
 #include "TMS_TrueParticle.h"
+#include "TMS_Geom.h"
 //#include "TMS_Tracks.h"
 
 // The edep-sim event class

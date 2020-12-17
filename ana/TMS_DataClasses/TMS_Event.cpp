@@ -13,34 +13,57 @@ TMS_Event::TMS_Event(TG4Event &event) {
   for (TG4PrimaryVertexContainer::iterator it = event.Primaries.begin(); it != event.Primaries.end(); ++it) {
 
     TG4PrimaryVertex vtx = *it;
-    // Get the particle trajectories
+    /*
     std::vector<TG4PrimaryParticle> particles = vtx.Particles;
 
     // Loop over the particles in the vertex
+    std::cout << particles.size() << " particles" << std::endl;
     for (TG4PrimaryVertex::PrimaryParticles::iterator jt = particles.begin(); jt != particles.end(); ++jt) {
       const TG4PrimaryParticle particle = *jt;
+      std::cout << particle.GetName() << std::endl;
+      std::cout << particle.GetPDGCode() << std::endl;
+      std::cout << particle.GetTrackId() << std::endl;
       TMS_TrueParticle truepart = TMS_TrueParticle(particle);
       TMS_TrueParticles.emplace_back(truepart);
     }
+    */
 
-    // Do we need the tracjectory points?
-    // Maybe?
     for (TG4TrajectoryContainer::iterator jt = event.Trajectories.begin(); jt != event.Trajectories.end(); ++jt) {
       TG4Trajectory traj = *jt;
 
-      // traj.GetTrackId()
-      // traj.GetParentId()
-      // traj.GetName()
-      // traj.GetPDGCode()
-      // traj.GetInitialMomentum
-      // traj.Points
-    // Then loop over the points
+      // Only bother to save the muon for now
+      int PDGcode = traj.GetPDGCode();
+      if (abs(PDGcode) != 13) continue;
+
+      // Only from fundamental vertex
+      int ParentId = traj.GetParentId();
+      if (ParentId != -1) continue;
+      int TrackId = traj.GetTrackId();
+      //std::cout << "TrackId of muon: " << TrackId << std::endl;
+
+      // This could be upstream in the LAr or anywhere the muon is born
+      //TVector3 Momentum = traj.Points[0].GetMomentum(); 
+      //TLorentzVector Position = traj.Points[0].GetPosition();
+
+      // Save down the trajectory points of the true particles
       for (std::vector<TG4TrajectoryPoint>::iterator kt = traj.Points.begin(); kt != traj.Points.end(); kt++) {
         TG4TrajectoryPoint pt = *kt;
-        // pt.GetProcess()
-        // pt.GetSubprocess()
-        // pt.GetMomentum()
-        // pt.GetPosition();
+        // Check the point against the geometry
+        TGeoNode *vol = TMS_Geom::GetInstance().GetGeometry()->FindNode(pt.GetPosition().X(), pt.GetPosition().Y(), pt.GetPosition().Z());
+        std::string VolumeName = vol->GetName();
+        // Only look at TMS hits
+        if (VolumeName.find("RMMS") == std::string::npos && 
+            VolumeName.find("modulelayer") == std::string::npos) continue;
+
+        TLorentzVector Position = pt.GetPosition();
+        TVector3 Momentum = pt.GetMomentum();
+
+        // Make the true particle that created this trajectory
+        TMS_TrueParticle muon(ParentId, TrackId, PDGcode, Momentum, Position);
+
+        TMS_TrueParticles.push_back(muon);
+        // We have the TMS starting point, now exit the loop
+        break;
       }
     }
 
@@ -54,7 +77,18 @@ TMS_Event::TMS_Event(TG4Event &event) {
       for (TG4HitSegmentContainer::iterator kt = tms_hits.begin(); kt != tms_hits.end(); ++kt) {
         TG4HitSegment edep_hit = *kt;
         TMS_Hit hit = TMS_Hit(edep_hit);
-        TMS_Hits.emplace_back(hit);
+        TMS_Hits.push_back(hit);
+
+        // Now associate the hits with the muon
+        int PrimaryId = edep_hit.GetPrimaryId();
+        // Loop through the True Particle list and associate
+        for (auto &TrueParticle : TMS_TrueParticles) {
+          // Check the primary ID
+          if (TrueParticle.GetTrackId() != PrimaryId) continue;
+          TLorentzVector Position = (edep_hit.GetStop()+edep_hit.GetStart());
+          Position *= 0.5;
+          TrueParticle.AddPoint(Position);
+        }
       }
     }
   }
