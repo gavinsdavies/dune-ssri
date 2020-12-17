@@ -15,6 +15,7 @@
 
 #include "TMS_Hit.h"
 #include "TMS_Event.h"
+#include "TMS_Constants.h"
 
 // Hand over to the Kalman reconstruction once we find tracks
 #include "TMS_Kalman.h"
@@ -28,7 +29,7 @@ class aNode {
     aNode(double xval, double yval, double ywval): 
       x(xval), y(yval), yw(ywval), 
       HeuristicCost(-999), NodeID(-999),
-      Heuristic(kEuclidean) { // what calculator
+      Heuristic(kManhattan) { // what calculator
     };
 
     aNode(double xval, double yval, double ywval, int ID): aNode(xval, yval, ywval) {
@@ -42,9 +43,12 @@ class aNode {
     double Calculate(aNode const &other) {
       // x is the plane number, y is in mm
       // jumping one plane incurs 10 ground, so reflect that here; jumping 2 planes (i.e. adjacent) should be 10 ground, jumping 4 planes (i.e. next to adjacent) is double that
-      double deltax = (x-other.x)*5;
+      //double deltax = (x-other.x)*5;
+      double deltax = (x-other.x)*10;
       // Moving 1 plane up is 10 ground cost, so reflect that here too
       double deltay = ((y-other.y)/yw)*10;
+
+      //std::cout << deltax << " " << deltay << std::endl;
       if (Heuristic == kManhattan) return std::abs(deltax)+std::abs(deltay);
       else if (Heuristic == kEuclidean) return sqrt(deltax*deltax+deltay*deltay);
       else return 999;
@@ -129,6 +133,18 @@ class TMS_TrackFinder {
 
     void SpatialPrio(std::vector<TMS_Hit> &TMS_Hits);
 
+    // Evaluate the track finding by using the event's true particles
+    void EvaluateTrackFinding(TMS_Event &event);
+
+    TH1D* GetEfficiencyHist() { return Efficiency; };
+    TH1D* GetTotalHist() { return Total; };
+    TH1D* GetEfficiency() { 
+      TH1D *eff = (TH1D*)Efficiency->Clone("Efficiency_ratio");
+      eff->Divide(Total);
+      return eff;
+    }
+
+
   private:
     TMS_TrackFinder();
     TMS_TrackFinder(TMS_TrackFinder const &) = delete;
@@ -168,6 +184,9 @@ class TMS_TrackFinder {
     bool IsGreedy;
     // Which planes are next to the gaps (i.e. may cause discontinuities)?
     std::vector<int> PlanesNearGap;
+
+    TH1D *Efficiency;
+    TH1D *Total;
 };
 
 #endif
