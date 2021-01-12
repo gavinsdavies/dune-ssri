@@ -33,6 +33,11 @@ class TMS_Hit {
       return ( a.GetBar().GetPlaneNumber() > b.GetBar().GetPlaneNumber() );
     }
 
+    // Sort by increasing Z
+    static bool SortByZInc(TMS_Hit &a, TMS_Hit &b) {
+      return ( a.GetBar().GetPlaneNumber() < b.GetBar().GetPlaneNumber() );
+    }
+
     // A helper function to determine if a hit is close to a gap
     bool NextToGap();
 
