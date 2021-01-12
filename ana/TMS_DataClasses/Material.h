@@ -71,6 +71,7 @@ class Material {
         fMaterialType = kAir;
       } else {
         fMaterialType = kUnknown;
+        std::cout << density << std::endl;
       }
 
       SetProperties();
@@ -200,6 +201,7 @@ class Material {
 
         default:
           std::cerr << "Material not supported" << std::endl;
+          std::cout << fMaterialType << std::endl;
           throw;
       }
     }
