@@ -1,3 +1,40 @@
+double disc(double val, int dim) {
+  double mini,maxi,widthi;
+  if (dim == 1) {
+    mini = -348.5;
+    maxi = 348.5;
+    widthi = 4; // 4 cm wide
+
+    int bin = (val-mini)/widthi;
+
+    return mini+bin*widthi;
+  }
+  else if (dim == 2) {
+    mini = 730.8;
+    maxi = 1415;
+    // Account for thin and thick regions
+    if (val > 949) {
+      mini = 949;
+      widthi = 8;
+      int bin = (val-mini)/widthi;
+      return mini + bin*widthi;
+    }
+    else if (val < 939) {
+      mini = 730.8;
+      widthi = 5.5;
+      int bin = (val-mini)/widthi;
+      return mini + bin*widthi;
+    } else {
+      return (949-939)/2;
+    }
+
+
+  }
+
+  //std::cout << val << " " << mini << " " << widthi << " " << bin <<  std::endl;
+
+}
+
 void magbend(std::string filename) {
   gStyle->SetPalette(55);
 
@@ -112,9 +149,16 @@ void magbend(std::string filename) {
 
     double x2 = muonBirth[0];
     double z2 = muonBirth[2];
+    x2 = disc(x2,1);
+    z2 = disc(z2, 2);
+    //double x2disc = disc(x2,1);
+    //std::cout << x2 << "->" << x2disc << std::endl;
 
     double x3 = muonDeath[0];
     double z3 = muonDeath[2];
+    x3 = disc(x3,1);
+    z3 = disc(z3, 2);
+    //double x3disc = disc(x3,1);
 
     // Check that the whole event is contained
     int nhits = (*xptLep).size();
