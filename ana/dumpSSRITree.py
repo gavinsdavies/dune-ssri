@@ -52,10 +52,10 @@ def loop( events, dspt, tgeo, tout ):
             t_muonDeath[0]=0.0; t_muonDeath[1]=0.0; t_muonDeath[2]=0.0;
             t_muonBirth[0]=0.0; t_muonBirth[1]=0.0; t_muonBirth[2]=0.0;
 
-            t_lepRMMS[0]=0.0; t_lepRMMS[1]=0.0; t_lepRMMS[2]=0.0;
+            t_lepTMS[0]=0.0; t_lepTMS[1]=0.0; t_lepTMS[2]=0.0;
             t_lepPdg[0] = 0
             t_lepKE[0] = 0.
-            t_rmmsKE[0] = -1.
+            t_TMSKE[0] = -1.
             t_lepE[0] = 0.
             t_muonExitPt[0] = 0.0; t_muonExitPt[1] = 0.0; t_muonExitPt[2] = 0.0; 
             t_muonExitMom[0] = 0.0; t_muonExitMom[1] = 0.0; t_muonExitMom[2] = 0.0; 
@@ -103,12 +103,11 @@ def loop( events, dspt, tgeo, tout ):
             assert ileptraj != -1, "There isn't a lepton??"
             t_nFS[0] = nfsp
 
-
             if abs(t_lepPdg[0]) != 13: continue
 
             # If there is a muon, determine how to reconstruct its momentum and charge
             exit = False
-            inrmms = False
+            inTMS = False
 
             leptraj = event.Trajectories[ileptraj]
 
@@ -141,10 +140,10 @@ def loop( events, dspt, tgeo, tout ):
                         t_muonExitPt[2] = pt.Z() / 10. - offset[2]
                         exit = True
 
-                    # Check if it is in the RMMS
-                    if ("RMMS" in volName or "modulelayer" in volName) and not inrmms:
-                        t_rmmsKE[0] = (p.GetMomentum().Mag2() + muon_mass*2)**0.5 - muon_mass
-                        inrmms = True
+                    # Check if it is in the TMS
+                    if ("TMS" in volName or "modulelayer" in volName) and not inTMS:
+                        t_TMSKE[0] = (p.GetMomentum().Mag2() + muon_mass*2)**0.5 - muon_mass
+                        inTMS = True
                 pPrev = pPos
                 pointval += 1
 
@@ -157,22 +156,24 @@ def loop( events, dspt, tgeo, tout ):
             t_lepDeath[2] = endpt.Z()/10. - offset[2]
 
             endVolName = node.GetName()
-            if "LArActive" in endVolName: t_muonReco[0] = 1 # contained
-            elif "RMMS" in endVolName: t_muonReco[0] = 2 # Scintillator stopper
+            if "TPCActive" in endVolName: t_muonReco[0] = 1 # contained
+            # Updated name in new geom
+            elif "TMS" in endVolName: t_muonReco[0] = 2 # Scintillator stopper
             else: t_muonReco[0] = 0 # endpoint not in active material
 
             # look for muon hits in the ArgonCube
             arhits = []
             for key in event.SegmentDetectors:
-                if key.first == "ArgonCube":
+                # Updated name in new geom
+                if key.first == "TPCActive_shape":
                     arhits += key.second
                     
             ar_muon_hits = []
             for idx, hit in enumerate(arhits):
                 tid = hit.Contrib[0]
                 traj = event.Trajectories[tid]
-                if traj.GetParentId() == -1 and abs(traj.GetPDGCode()) == 13:
-                    ar_muon_hits.append(hit)
+                #if traj.GetParentId() == -1 and abs(traj.GetPDGCode()) == 13:
+                ar_muon_hits.append(hit)
 
             if len(ar_muon_hits) < 3: continue
 
@@ -195,15 +196,15 @@ def loop( events, dspt, tgeo, tout ):
             # look for muon hits in the scintillator
             hits = []
             for key in event.SegmentDetectors:
-                if key.first == "rmmsvol":
+                if key.first == "volTMS":
                     hits += key.second
 
             muon_hits = []
             for idx, hit in enumerate(hits):
                 tid = hit.Contrib[0]
                 traj = event.Trajectories[tid]
-                if traj.GetParentId() == -1 and abs(traj.GetPDGCode()) == 13:
-                    muon_hits.append(hit)
+                #if traj.GetParentId() == -1 and abs(traj.GetPDGCode()) == 13:
+                muon_hits.append(hit)
 
             if len(muon_hits) < 2: continue
 
@@ -226,18 +227,18 @@ def loop( events, dspt, tgeo, tout ):
                 hStop = ROOT.TVector3( hit.GetStop()[0]/10.-offset[0], hit.GetStop()[1]/10.-offset[1], hit.GetStop()[2]/10.-offset[2] )
                 Time = hit.GetStart()[3]
 
-                tempnode = tgeo.FindNode( hit.GetStart()[0], hit.GetStart()[1], hit.GetStart()[2])
-                nav = tgeo.GetCurrentNavigator()
-                topnode_name = nav.GetCurrentNode().GetName()
+                #tempnode = tgeo.FindNode( hit.GetStart()[0], hit.GetStart()[1], hit.GetStart()[2])
+                #nav = tgeo.GetCurrentNavigator()
+                #topnode_name = nav.GetCurrentNode().GetName()
                 # Z enumerated 
-                while "modulelayervol_PV" not in topnode_name:
-                  nav.CdUp()
-                  topnode_name = nav.GetCurrentNode().GetName()
+                #while "modulelayervol_PV" not in topnode_name:
+                  #nav.CdUp()
+                  #topnode_name = nav.GetCurrentNode().GetName()
 
-                print topnode_name
-                layerno = nav.GetCurrentNode().GetNumber()
-                print layerno
-                hStart.Print()
+                #print topnode_name
+                #layerno = nav.GetCurrentNode().GetNumber()
+                #print layerno
+                #hStart.Print()
 
                 #nextnode = nav.FindNextBoundary();
                 #print "Next boundary: ",nextnode.GetName(), nextnode.GetVolume().GetName()
@@ -245,6 +246,7 @@ def loop( events, dspt, tgeo, tout ):
                 xpt.push_back(hStart.x())
                 zpt.push_back(hStart.z())
                 deposit.push_back(hit.GetEnergyDeposit())
+                continue
 
                 # this isn't the first hit, so we can start to build a track
                 if hPrev is not None:
@@ -355,6 +357,8 @@ def loop( events, dspt, tgeo, tout ):
                 hPrevTime = Time
                 hFinal = hStop
 
+            hit = muon_hits[-1]
+            hFinal = ROOT.TVector3( hit.GetStart()[0]/10.-offset[0], hit.GetStart()[1]/10.-offset[1], hit.GetStart()[2]/10.-offset[2] )
             t_muonDeath[0] = hFinal.x()
             t_muonDeath[1] = hFinal.y()
             t_muonDeath[2] = hFinal.z()
@@ -373,19 +377,26 @@ if __name__ == "__main__":
     ROOT.gROOT.SetBatch(1)
 
     parser = OptionParser()
-    parser.add_option('--outfile', help='Output file name', default="out.root")
-    parser.add_option('--topdir', help='Input file top directory', default="")
-    parser.add_option('--nmax', help='Maximum number of events', default="99999999999999")
-    parser.add_option('--maxfiles', help='Maximum number of events', default="99999")
+    #parser.add_option('--outfile', help='Output file name', default="out.root")
+    #parser.add_option('--topdir', help='Input file top directory', default="")
+    #parser.add_option('--nmax', help='Maximum number of events', default="99999999999999")
+    #parser.add_option('--maxfiles', help='Maximum number of events', default="99999")
     #parser.add_option('--first_run', type=int, help='First run number', default=0)
     #parser.add_option('--last_run', type=int, help='Last run number', default=0)
     #parser.add_option('--rhc', action='store_true', help='Reverse horn current', default=False)
     #parser.add_option('--grid', action='store_true', help='grid mode', default=False)
+    parser.add_option('--outfile', help='Output file name', default="out.root")
+    parser.add_option('--nmax', help='Maximum number of events', default="99999999999999")
+    parser.add_option('--infile', help='EDepSim input file')
 
     (args, dummy) = parser.parse_args()
 
     nmax = int(args.nmax)
-    maxfiles = int(args.maxfiles)
+    input_file = args.infile
+    print input_file
+    if not input_file:
+      print "Need input file"
+      exit(-1)
 
     # make an output ntuple
     fout = ROOT.TFile( args.outfile, "RECREATE" )
@@ -404,14 +415,14 @@ if __name__ == "__main__":
     tout.Branch('muonDeath',t_muonDeath,'muonDeath[3]/F')
     t_muonBirth = array('f',3*[0.0])
     tout.Branch('muonBirth',t_muonBirth,'muonBirth[3]/F')
-    t_lepRMMS = array('f',3*[0.0])
-    tout.Branch('lepRMMS',t_lepRMMS,'leRMMS[3]/F')
+    t_lepTMS = array('f',3*[0.0])
+    tout.Branch('lepTMS',t_lepTMS,'leTMS[3]/F')
     t_lepPdg = array('i',[0])
     tout.Branch('lepPdg',t_lepPdg,'lepPdg/I')
     t_lepKE = array('f',[0])
     tout.Branch('lepKE',t_lepKE,'lepKE/F')
-    t_rmmsKE = array('f',[0])
-    tout.Branch('rmmsKE',t_rmmsKE,'rmmsKE/F')
+    t_TMSKE = array('f',[0])
+    tout.Branch('TMSKE',t_TMSKE,'TMSKE/F')
     t_lepE = array('f',[0])
     tout.Branch('lepE',t_lepE,'lepE/F')
     t_muonExitPt = array('f',3*[0.0])
@@ -442,6 +453,10 @@ if __name__ == "__main__":
     tout.Branch('fsPz',t_fsPz,'fsPz[nFS]/F')
     t_fsE = array('f',100*[0.])
     tout.Branch('fsE',t_fsE,'fsE[nFS]/F')
+
+    t_Reac = "";
+    tout.Branch('reac', t_Reac, 'reac/C')
+
     xpt = ROOT.std.vector('float')()
     zpt = ROOT.std.vector('float')()
     deposit = ROOT.std.vector('float')()
@@ -489,42 +504,32 @@ if __name__ == "__main__":
             #tgeo = tf.Get("EDepSimGeometry")
         #tf.Close() # done with this one
 
-    nfiles = 0
-    for run in glob.glob(args.topdir+"/edep*.root"):
-      print nfiles
-      print maxfiles
-      if nfiles > maxfiles: 
-        break
+    #nfiles = 0
+    #for run in glob.glob(args.topdir+"/edep*.root"):
+      #print nfiles
+      #print maxfiles
+      #if nfiles > maxfiles: 
+        #break
 
-      fname = run
-      print "Adding "+fname+" to TChain..."
+      #fname = run
+    fname = input_file
+    print "Adding "+fname+" to TChain..."
+    tgeo = None
 
-      #fname = fname.replace("/pnfs","root://fndca1.fnal.gov:1094//pnfs/fnal.gov/usr")
-      # see if it is an OK file
-      if not os.access( fname, os.R_OK ):
-        print "Can't access file: %s" % fname
-        continue
+    tf = ROOT.TFile.Open( fname )
+    tf.MakeProject("EDepSimEvents","*","RECREATE++")
 
-      tf = ROOT.TFile.Open( fname )
-      if tf.TestBit(ROOT.TFile.kRecovered): # problem with file
-        print "File is crap: %s" % fname
-        continue
+    # add it to the tchain
+    events.Add( fname )
+    dspt.Add( fname )
 
-      if not loaded:
-        loaded = True
-        tf.MakeProject("EDepSimEvents","*","RECREATE++")
+    #if tgeo is None: # first OK file, get geometry
+    tgeo = tf.Get("EDepSimGeometry")
+    tf.Close() # done with this one
 
-      # add it to the tchain
-      events.Add( fname )
-      dspt.Add( fname )
+    #nfiles += 1
 
-      if tgeo is None: # first OK file, get geometry
-        tgeo = tf.Get("EDepSimGeometry")
-      tf.Close() # done with this one
-
-      nfiles += 1
-
-    print "Running on ",nfiles," root files..."
+    #print "Running on ",nfiles," root files..."
     loop( events, dspt, tgeo, tout )
 
     fout.cd()
