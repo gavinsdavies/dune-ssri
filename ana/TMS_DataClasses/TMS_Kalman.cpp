@@ -10,7 +10,8 @@ TMS_Kalman::TMS_Kalman() :
 TMS_Kalman::TMS_Kalman(std::vector<TMS_Hit> &Candidates) : 
   Bethe(Material::kPolyStyrene), 
   MSC(Material::kPolyStyrene),
-  ForwardFitting(false),
+  //ForwardFitting(false),
+  ForwardFitting(true),
   Talk(false)
   //Talk(true)
 {
@@ -23,37 +24,87 @@ TMS_Kalman::TMS_Kalman(std::vector<TMS_Hit> &Candidates) :
   // And muon mass
   mass = BetheBloch_Utils::Mm;
 
+  std::cout << "Front: " << Candidates.front().GetZ() << std::endl;
+  if (ForwardFitting) std::sort(Candidates.begin(), Candidates.end(), TMS_Hit::SortByZInc);
+  else                std::sort(Candidates.begin(), Candidates.end(), TMS_Hit::SortByZ);
+  std::cout << "After sort front: " << Candidates.front().GetZ() << std::endl;
+
   // Make a new Kalman state for each hit
   KalmanNodes.reserve(nCand);
-  double PreviousZ = -999;
   for (int i = 0; i < nCand; ++i) {
+
     TMS_Hit hit = Candidates[i];
     //if (hit.GetBar().GetBarType() != TMS_Bar::kYBar) continue;
-    double x = hit.GetTrueHit().GetX();
+    double x = hit.GetNotZ();
     double y = hit.GetTrueHit().GetY();
-    double z = hit.GetTrueHit().GetZ();
+    double z = hit.GetZ();
+    double future_z = (i+1 == nCand ) ? z : Candidates[i+1].GetZ();
 
-    double DeltaZ = z-PreviousZ;
+    double DeltaZ = future_z-z;
+    std::cout << "hit: " <<  i << " z: " << z << " deltaz: " << DeltaZ << std::endl;
 
     // This also initialises the state vectors in each of the nodes
-    TMS_KalmanNode Node(x,y,z,DeltaZ);
+    TMS_KalmanNode Node(x, y, z, DeltaZ);
     KalmanNodes.emplace_back(std::move(Node));
+  }
 
-    PreviousZ = z;
+  // Set the momentum seed for the first hit from its length
+  if (ForwardFitting) {
+    double startx = Candidates.front().GetNotZ();
+    double endx = Candidates.back().GetNotZ();
+    double startz = Candidates.front().GetZ();
+    double endz = Candidates.back().GetZ();
+    double KEest = GetKEEstimateFromLength(startx, endx, startz, endz);
+    double momest = sqrt((KEest+mass)*(KEest+mass)-mass*mass);
+    std::cout << "momentum estimate from length: " << momest << std::endl;
+    KalmanNodes.front().PreviousState.qp = 1./momest;
+    KalmanNodes.front().CurrentState.qp = 1./momest;
   }
 
   RunKalman();
+}
 
+// Used for seeding the starting KE for the Kalman filter from the start and end point of a track
+double TMS_Kalman::GetKEEstimateFromLength(double startx, double endx, double startz, double endz) {
+  // if in thin and thick target there's a different relationship
+  double distx = endx-startx;
+  double distz = endz-startz;
+  double dist = sqrt(distx*distx+distz*distz);
+
+  /* pol0 fit to xz distance of start and death point using truth, for track ending in THICK (death > 739 cm in z)
+     p0                        =      101.506   +/-   4.05823     
+     p1                        =     0.132685   +/-   0.00354222  
+     */
+
+  /* pol0 fit to xz distance of start and death point using truth, for track ending in THIN (death < 739 cm in z)
+     p0                        =     -1.13305   +/-   0.129217    
+     p1                        =     0.234404   +/-   0.00218364  
+     */
+
+  double KEest = 0;
+  // If in thick region
+  if (endz > TMS_Const::TMS_Trans_Start+TMS_Const::TMS_Det_Offset[2]*10) KEest = 101.5+0.133*dist;
+  else KEest = -1.13+0.234*dist;
+
+  std::cout << "dist: " << dist << " KE: " << KEest << std::endl;
+
+  return KEest;
 }
 
 // Update to the next step
 void TMS_Kalman::RunKalman() {
 
   int nCand = KalmanNodes.size();
-  for (int i = 0; i < nCand; ++i) {
+  for (int i = 1; i < nCand; ++i) {
+    // Perform the update from the (i-1)th node's predicted to the ith node's previous
+    Update(KalmanNodes[i-1], KalmanNodes[i]);
     Predict(KalmanNodes[i]);
   }
   std::cout << "Momentum of last hit: " << 1./KalmanNodes.back().CurrentState.qp << std::endl;
+}
+
+void TMS_Kalman::Update(TMS_KalmanNode &PreviousNode, TMS_KalmanNode &CurrentNode) {
+  CurrentNode.PreviousState = PreviousNode.CurrentState;
 }
 
 // Predict the next step
@@ -71,13 +122,15 @@ void TMS_Kalman::Predict(TMS_KalmanNode &Node) {
      UpdateStateVector();
      UpdateCovariance();
      MoveArrays();
-  */
+     */
 
   TMS_KalmanState &PreviousState = Node.PreviousState;
   TMS_KalmanState &CurrentState = Node.CurrentState;
 
   // Propagate the current state
   TMatrixD &Transfer = Node.TransferMatrix;
+  std::cout << "Transfer matrix: " << std::endl;
+  Transfer.Print();
   TVectorD PreviousVec(5);
   PreviousVec[0] = PreviousState.x;
   PreviousVec[1] = PreviousState.y;
@@ -93,6 +146,13 @@ void TMS_Kalman::Predict(TMS_KalmanNode &Node) {
   CurrentState.dydz = UpdateVec[3];
   // Don't update q/p until later (when we've done the energy loss calculation)
 
+
+  std::cout << "Previous vector: " << std::endl;
+  PreviousState.Print();
+  std::cout << "Current vector (before energy loss): " << std::endl;
+  CurrentState.Print();
+
+
   // Update the energy
   double mom = 1./PreviousState.qp;
   // Initial energy before energy loss
@@ -102,7 +162,7 @@ void TMS_Kalman::Predict(TMS_KalmanNode &Node) {
 
   if (Talk) std::cout << "mom: " << mom << std::endl;
 
-  // Cheat for now
+  // Read the position between current point and extrapolated into next bar
   double xval = PreviousState.x;
   double yval = PreviousState.y;
   double zval = PreviousState.z;
@@ -136,6 +196,7 @@ void TMS_Kalman::Predict(TMS_KalmanNode &Node) {
     // Read these directly from a TGeoManager
     double density = material.first->GetDensity()/(CLHEP::g/CLHEP::cm3); // now in g/cm3 (edep-sim geometry is in CLHEP units)
     double thickness = material.second/10.; // in cm (was in mm in geometry)
+    material.first->Print();
 
     if (Talk) {
       std::cout << "Material " << counter << " = " << material.first->GetName() << std::endl;
@@ -195,9 +256,13 @@ void TMS_Kalman::Predict(TMS_KalmanNode &Node) {
     std::cerr << "negative momentum squared, setting momentum to 1 MeV" << std::endl;
     p_up = 1;
   }
+  std::cout << "momentum: " << p_up << std::endl;
 
   // Update the state's q/p
   CurrentState.qp = 1./p_up;
+
+  std::cout << "Current vector (after energy loss): " << std::endl;
+  CurrentState.Print();
 
   if (Talk) {
     std::cout << "total energy variation: " << total_en_var << std::endl;
@@ -241,24 +306,29 @@ void TMS_Kalman::Predict(TMS_KalmanNode &Node) {
   // Build the covariance matrix in Wolin and Ho after eq 18
   // Equation 15 in Robert Harr Calculation of Track and Vertex Errors for Detector Design Studies
   // Also equation 48; kappa in Harr is "norm" here
+  // See also Rainer Mankel, 1998 "ranger a pattern recognition algorithm for the HERA-B main tracking system, part iv the object-oriented track fit" Appendix B, HERA-B note 98-079
   double TotalPathLengthSq = TotalPathLength*TotalPathLength;
   NoiseMatrix(0,0) = covAxAx * TotalPathLengthSq / 3.;
   NoiseMatrix(1,1) = covAyAy * TotalPathLengthSq / 3.;
   NoiseMatrix(2,2) = covAxAx;
   NoiseMatrix(3,3) = covAyAy;
 
-  // Not sure about the negative signs...? Wolin and Ho have them in, Harr doesn't
-  NoiseMatrix(1,0) = NoiseMatrix(0,1) =    covAxAy * TotalPathLengthSq/3.;
-  NoiseMatrix(2,0) = NoiseMatrix(0,2) = -1*covAxAx * TotalPathLength/2.;
-  NoiseMatrix(3,0) = NoiseMatrix(0,3) = -1*covAxAy * TotalPathLength/2.;
+  // Negative signs depend on if we're doing backward or forward fitting (- sign for decreasing z, + sign for increasing z)
+  int Sign = +1;
+  if (!ForwardFitting) Sign *= -1;
 
-  NoiseMatrix(2,1) = NoiseMatrix(1,2) = -1*covAxAy * TotalPathLength/2.;
-  NoiseMatrix(3,1) = NoiseMatrix(3,1) = -1*covAyAy * TotalPathLength/2.;
+  NoiseMatrix(1,0) = NoiseMatrix(0,1) =    covAxAy * TotalPathLengthSq/3.;
+  NoiseMatrix(2,0) = NoiseMatrix(0,2) = (Sign)*covAxAx * TotalPathLength/2.;
+  NoiseMatrix(3,0) = NoiseMatrix(0,3) = (Sign)*covAxAy * TotalPathLength/2.;
+
+  NoiseMatrix(2,1) = NoiseMatrix(1,2) = (Sign)*covAxAy * TotalPathLength/2.;
+  NoiseMatrix(3,1) = NoiseMatrix(3,1) = (Sign)*covAyAy * TotalPathLength/2.;
 
   NoiseMatrix(3,2) = NoiseMatrix(2,3) =    covAxAy;
 
   // I think that's it
-  // Other than the B-field...
+  // Other than the B-field...!
+
 }
 
 

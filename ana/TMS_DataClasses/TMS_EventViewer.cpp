@@ -10,7 +10,8 @@ DrawTrackFinding(false)
   gStyle->SetNumberContours(255);
 
   const double zmin = (700+TMS_Const::TMS_Det_Offset[2])*10;
-  const double zmax = (1500+TMS_Const::TMS_Det_Offset[2])*10;
+  //const double zmax = (1500+TMS_Const::TMS_Det_Offset[2])*10;
+  const double zmax = TMS_Const::TMS_End_z;
   const double xmin = (-400+TMS_Const::TMS_Det_Offset[0])*10;
   const double xmax = (400+TMS_Const::TMS_Det_Offset[0])*10;
   const double ymin = (-250+TMS_Const::TMS_Det_Offset[1])*10;

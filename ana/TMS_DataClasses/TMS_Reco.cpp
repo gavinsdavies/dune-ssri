@@ -64,18 +64,19 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
 
   // Now have the TotalCandidates filled
   // Start some reconstruction chain
-  /*
   for (auto &i : TotalCandidates) {
     // Get the xz and yz hits
     std::vector<TMS_Hit> xz_hits = ProjectHits(i, TMS_Bar::kYBar);
-    std::cout << "xz hits: " << xz_hits.size() << std::endl;
+    size_t nHits = xz_hits.size();
+    if (nHits < 1) continue; 
     KalmanFitter = TMS_Kalman(xz_hits);
 
+    /*
     std::vector<TMS_Hit> yz_hits = ProjectHits(i, TMS_Bar::kXBar);
     std::cout << "yz hits: " << yz_hits.size() << std::endl;
     KalmanFitter = TMS_Kalman(yz_hits);
+    */
   }
-  */
 
 }
 
@@ -767,9 +768,11 @@ std::vector<TMS_Hit> TMS_TrackFinder::CleanHits(const std::vector<TMS_Hit> &TMS_
   }
 
   // Remove zero entries
+  // Strip out hits that are outside the actual volume 
+  // This is probably some bug in the geometry that sometimes gives hits in the z=30k mm (i.e. 10m downstream of the end of the TMS)
   // Figure out why these happen?
   for (std::vector<TMS_Hit>::iterator jt = TMS_Hits_Cleaned.begin(); jt != TMS_Hits_Cleaned.end(); ) {
-    if ((*jt).GetZ() == 0 || (*jt).GetNotZ() == 0) {
+    if ((*jt).GetZ() == 0 || (*jt).GetNotZ() == 0 || (*jt).GetZ() > TMS_Const::TMS_End_z) {
       jt = TMS_Hits_Cleaned.erase(jt);
     } else {
       jt++;

@@ -31,14 +31,19 @@ class TMS_KalmanState {
       : x(xvar), y(yvar), dxdz(dxdzvar), dydz(dydzvar), qp(qpvar), z(zvar) {
     };
 
-    TVectorD Vector;
-
     double x;
     double y;
     double dxdz;
     double dydz;
     double qp;
     double z; // the dependent variable of the state vector
+
+    void Print() {
+      std::cout << "Printing Kalman node: " << std::endl;
+      std::cout << "  {x, y, dx/dz, dy/dz, q/p, z} = {" << x << ", " << y << ", " << dxdz << ", " << dydz << ", " << qp << ", " << z << "}" << std::endl;
+    }
+
+
 
 };
 
@@ -47,6 +52,7 @@ class TMS_KalmanState {
 class TMS_KalmanNode {
   public:
   TMS_KalmanNode() = delete;
+
   TMS_KalmanNode(double xvar, double yvar, double zvar, double dzvar) :
     x(xvar), y(yvar), z(zvar), dz(dzvar), 
     CurrentState(x, y, z+dz, 0.1, 0.1, 1./20.), // Initialise the state vectors
@@ -88,6 +94,13 @@ class TMS_KalmanNode {
 
   // Measurement matrix
   TMatrixD MeasurementMatrix;
+
+  bool operator<(const TMS_KalmanNode &other) const {
+    return z < other.z;
+  }
+  bool operator>(const TMS_KalmanNode &other) const {
+    return z > other.z;
+  }
 };
 
 class TMS_Kalman {
@@ -95,13 +108,15 @@ class TMS_Kalman {
     TMS_Kalman();
     TMS_Kalman(std::vector<TMS_Hit> &Candidates);
 
+    double GetKEEstimateFromLength(double startx, double endx, double startz, double endz);
+
   private:
     // Energy-loss calculator
     BetheBloch_Calculator Bethe;
     MultipleScatter_Calculator MSC;
 
     void Predict(TMS_KalmanNode &Node);
-    void Update();
+    void Update(TMS_KalmanNode &PreviousNode, TMS_KalmanNode &CurrentNode);
     void RunKalman();
 
     // State vector

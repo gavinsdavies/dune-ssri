@@ -5,6 +5,9 @@
 #include "TGeoManager.h"
 #include "TStopwatch.h"
 
+// For now write the efficiency here...
+#include "TH1D.h"
+
 // EDepSim includes
 #include "EDepSim/TG4Event.h"
 #include "EDepSim/TG4PrimaryVertex.h"
@@ -46,8 +49,9 @@ bool ConvertToTMSTree(std::string filename, std::string output_filename) {
   TStopwatch Timer;
   Timer.Start();
 
-  for (int i = 0; i < N_entries; ++i) {
-    if (i > 100) break;
+  int i = 0;
+  for (; i < N_entries; ++i) {
+    if (i > 10) break;
     events->GetEntry(i);
     gRoo->GetEntry(i);
 
@@ -67,9 +71,20 @@ bool ConvertToTMSTree(std::string filename, std::string output_filename) {
     TMS_EventViewer::GetViewer().Draw(tms_event);
   } // End loop over all the events
 
+  /*
+  TH1D* eff = TMS_TrackFinder::GetFinder().GetEfficiencyHist();
+  TH1D* total = TMS_TrackFinder::GetFinder().GetTotalHist();
+  TH1D* eff_ratio = TMS_TrackFinder::GetFinder().GetEfficiency();
+  TFile *file = new TFile("test_eff.root", "recreate");
+  file->cd();
+  eff->Write();
+  total->Write();
+  eff_ratio->Write();
+  file->Close();
+  */
 
   Timer.Stop();
-  std::cout << "Event loop took " << Timer.RealTime() << "s for " << N_entries << " entries (" << Timer.RealTime()/N_entries << " s/entries)" << std::endl;
+  std::cout << "Event loop took " << Timer.RealTime() << "s for " << i << " entries (" << Timer.RealTime()/N_entries << " s/entries)" << std::endl;
 
   return true;
 }
