@@ -24,6 +24,10 @@ namespace TMS_Const {
   const double TMS_Trans_Start = 939.8;
   const double TMS_Thick_Start = 949.3;
 
+  // Approximate starting and end positions of TMS detector in geometry for plotting hits, in {x,y,z}
+  const double TMS_Start[] = {-400, -350, 1000};
+  const double TMS_End[] = {400, 50, 2000};
+
   // Gap for TMS region that is thin iron layer (cm)
   const double TMS_Thin_gap = 5.5;
   // Gap for TMS region that is between thin and thick regions (cm)
@@ -39,7 +43,8 @@ namespace TMS_Const {
   const double TMS_Thick_Steel_Width = 4.0;
 
   // Offsets to put the TMS in the middle
-  const double TMS_Det_Offset[] = { 0., 5.5, 411. };
+  const double TMS_Det_Offset[] = { 0., 0., 0. };
+  //const double TMS_Det_Offset[] = { 0., 5.5, 411. };
   //const double TMS_Det_Offset[] = { 0., 0.0, 411. };
 
   // Needs translating by the TMS_Const::TMS_Det_Offset array
@@ -61,7 +66,9 @@ namespace TMS_Const {
   const double TMS_Dead_Bottom_T[] = {(TMS_Dead_Bottom[0]+TMS_Det_Offset[1])*10, (TMS_Dead_Bottom[1]+TMS_Det_Offset[1])*10};
 
   // Volume name of TMS related hits
-  const std::string TMS_VolumeName = "rmmsvol";
+  const std::string TMS_VolumeName = "TMS";
+  // Volume name for edep-sim SegmentDetectors
+  const std::string TMS_EDepSim_VolumeName = "volTMS";
   // To find in z
   const std::string TMS_ModuleLayerName = "modulelayervol_PV";
   // To find scintillator "box"

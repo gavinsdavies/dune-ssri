@@ -9,13 +9,12 @@ DrawTrackFinding(false)
   gStyle->SetOptStat(0);
   gStyle->SetNumberContours(255);
 
-  const double zmin = (700+TMS_Const::TMS_Det_Offset[2])*10;
-  //const double zmax = (1500+TMS_Const::TMS_Det_Offset[2])*10;
-  const double zmax = TMS_Const::TMS_End_z;
-  const double xmin = (-400+TMS_Const::TMS_Det_Offset[0])*10;
-  const double xmax = (400+TMS_Const::TMS_Det_Offset[0])*10;
-  const double ymin = (-250+TMS_Const::TMS_Det_Offset[1])*10;
-  const double ymax = (100+TMS_Const::TMS_Det_Offset[1])*10;
+  const double zmin = TMS_Const::TMS_Start[2];
+  const double zmax = TMS_Const::TMS_End[2];
+  const double xmin = TMS_Const::TMS_Start[0];
+  const double xmax = TMS_Const::TMS_End[0];
+  const double ymin = TMS_Const::TMS_Start[1];
+  const double ymax = TMS_Const::TMS_End[1];
   // Scint bars are 4 by 1 cm
   //const int nbinsz = ((zmax-zmin)/10)/5;
   const int nbinsz = ((zmax-zmin)/10)/2;
@@ -138,7 +137,7 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
 
   // Check that there are hits
   if (TMS_Hits.size() < 50) {
-    //std::cerr << "Trying to draw an event that has no hits in the TMS, returning..." << std::endl;
+    std::cout << "Trying to draw an event that has no hits in the TMS, returning..." << std::endl;
     return;
   }
 
@@ -161,7 +160,7 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
     }
   }
 
-  // Loop over the reconstructed tracks
+  // Loop over the reconstructed tracks to overlay with hits
   //std::vector<TMS_Hit> Candidates = TMS_TrackFinder::GetFinder().GetCandidates();
   std::vector<std::vector<TMS_Hit> > TotalCandidates = TMS_TrackFinder::GetFinder().GetTotalCandidates();
 

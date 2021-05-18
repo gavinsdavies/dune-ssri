@@ -5,6 +5,7 @@ int TMS_Event::EventNumber = 0;
 
 // Start the relatively tedious process of converting into TMS products!
 TMS_Event::TMS_Event(TG4Event &event) {
+  bool OnlyMuon = true;
 
   // Check the integrity of the event
   //CheckIntegrity();
@@ -33,15 +34,15 @@ TMS_Event::TMS_Event(TG4Event &event) {
 
       // Only bother to save the muon for now
       int PDGcode = traj.GetPDGCode();
-      if (abs(PDGcode) != 13) continue;
+      if (OnlyMuon && abs(PDGcode) != 13) continue;
 
       // Only from fundamental vertex
       int ParentId = traj.GetParentId();
       if (ParentId != -1) continue;
       int TrackId = traj.GetTrackId();
-      //std::cout << "TrackId of muon: " << TrackId << std::endl;
 
       // This could be upstream in the LAr or anywhere the muon is born
+      // The starting point of the trajectory
       //TVector3 Momentum = traj.Points[0].GetMomentum(); 
       //TLorentzVector Position = traj.Points[0].GetPosition();
 
@@ -52,8 +53,8 @@ TMS_Event::TMS_Event(TG4Event &event) {
         TGeoNode *vol = TMS_Geom::GetInstance().GetGeometry()->FindNode(pt.GetPosition().X(), pt.GetPosition().Y(), pt.GetPosition().Z());
         std::string VolumeName = vol->GetName();
         // Only look at TMS hits
-        if (VolumeName.find("RMMS") == std::string::npos && 
-            VolumeName.find("modulelayer") == std::string::npos) continue;
+        if (VolumeName.find(TMS_Const::TMS_VolumeName) == std::string::npos && 
+            VolumeName.find(TMS_Const::TMS_ModuleLayerName) == std::string::npos) continue;
 
         TLorentzVector Position = pt.GetPosition();
         TVector3 Momentum = pt.GetMomentum();
@@ -71,13 +72,15 @@ TMS_Event::TMS_Event(TG4Event &event) {
     for (TG4HitSegmentDetectors::iterator jt = event.SegmentDetectors.begin(); jt != event.SegmentDetectors.end(); ++jt) {
       // Only look at TMS hits
       std::string DetString = (*jt).first;
-      if (DetString != TMS_Const::TMS_VolumeName) continue;
+      if (DetString != TMS_Const::TMS_EDepSim_VolumeName) continue;
 
       TG4HitSegmentContainer tms_hits = (*jt).second;
       for (TG4HitSegmentContainer::iterator kt = tms_hits.begin(); kt != tms_hits.end(); ++kt) {
         TG4HitSegment edep_hit = *kt;
         TMS_Hit hit = TMS_Hit(edep_hit);
         TMS_Hits.push_back(hit);
+        std::cout << "***" << std::endl;
+        hit.Print();
 
         // Now associate the hits with the muon
         int PrimaryId = edep_hit.GetPrimaryId();

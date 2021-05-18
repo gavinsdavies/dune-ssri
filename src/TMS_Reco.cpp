@@ -34,7 +34,6 @@ TMS_TrackFinder::TMS_TrackFinder() :
 
 // The generic track finder
 void TMS_TrackFinder::FindTracks(TMS_Event &event) {
-  std::cout << "Event: " << event.GetEventNumber() << std::endl;
 
   // Check through the Houghlines
   for (auto i : HoughLines) {
