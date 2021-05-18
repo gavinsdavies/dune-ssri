@@ -28,4 +28,8 @@ export EDEP_SIM=${MY_SSRI_DIR}/edep-sim/edep-gcc-6.4.0-x86_64-pc-linux-gnu
 export LD_LIBRARY_PATH=${EDEP_SIM}/lib:${LD_LIBRARY_PATH}
 export PATH=${EDEP_SIM}/bin:${PATH}
 
+# Add TMS execs and library directory to env
+export PATH=${PATH}:${PWD}/bin
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${PWD}/lib
+
 echo "Setup TMS environment"
