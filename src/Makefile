@@ -53,4 +53,4 @@ $(LIB_DIR)/libTMS_Prod.so: libTMS_Prod.a
 	$(LD_SHARED) $(SO_FLAGS) $(CXXFLAGS) -o $@ -Wl,--whole-archive $^ -Wl,--no-whole-archive $(LIB_OBJ)
 
 clean:
-	rm -f lib* *.o *.a *.exe
+	rm -f $(LIB_DIR)/lib* *.o *.a *.exe

@@ -41,4 +41,4 @@ $(EXE_DIR)/BetheBloch_Example.exe: BetheBloch_Example.cpp
 	$(CXX) $(CXXFLAGS) $(ROOT_INC) -o $@ $^ $(ROOT_LIBS)
 
 clean:
-	rm -f lib* *.o *.a *.exe
+	rm -f $(EXE_DIR)/*.exe
