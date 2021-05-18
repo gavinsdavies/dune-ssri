@@ -22,6 +22,11 @@ SO_FLAGS = -shared $(ROOT_INC)
 # Include this directory when looking for libs
 BUILD_FLAGS = -Wl,-R -Wl,.
 
+MKDIR_P := mkdir -p
+
+# Library directory where we build to
+LIB_DIR=../lib
+
 # Our lovely collection of libs
 LIB_OBJ = $(EDEP_LIBS) $(ROOT_LIBS)
 
@@ -30,23 +35,22 @@ TMS_OBJ = TMS_Bar.o TMS_Hit.o TMS_TrueHit.o TMS_Event.o TMS_TrueParticle.o TMS_E
 %.o:%.cpp
 	$(CXX) -c $(CXXFLAGS) $<
 
-all: libTMS_Prod ConvertToTMSTree.exe BetheBloch_Example.exe
+all: directories libTMS_Prod
 
-libTMS_Prod: libTMS_Prod.so
+directories: $(LIB_DIR)
 
-ConvertToTMSTree.exe: ConvertToTMSTree.cpp libTMS_Prod
-	$(CXX) $(CXXFLAGS) -o $@ ConvertToTMSTree.cpp -L . -lTMS_Prod $(LIB_OBJ) $(BUILD_FLAGS)
+$(LIB_DIR):
+	${MKDIR_P} $(LIB_DIR)
+
+libTMS_Prod: $(LIB_DIR)/libTMS_Prod.so
 
 # Make the archive or static lib
 libTMS_Prod.a: $(TMS_OBJ)
 	$(AR) $(ARFLAGS) $@ $^
 
 # Make the shared object
-libTMS_Prod.so: libTMS_Prod.a
+$(LIB_DIR)/libTMS_Prod.so: libTMS_Prod.a
 	$(LD_SHARED) $(SO_FLAGS) $(CXXFLAGS) -o $@ -Wl,--whole-archive $^ -Wl,--no-whole-archive $(LIB_OBJ)
-
-BetheBloch_Example.exe: BetheBloch_Example.cpp
-	$(CXX) $(ROOT_INC) -o $@ $^ $(ROOT_LIBS)
 
 clean:
 	rm -f lib* *.o *.a *.exe
