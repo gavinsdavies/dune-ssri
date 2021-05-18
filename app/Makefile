@@ -19,15 +19,25 @@ CXXFLAGS += $(ROOT_INC) $(EDEP_INC) $(TMS_INC)
 # Our lovely collection of dependencies
 LIB_OBJ = $(EDEP_LIBS) $(ROOT_LIBS)
 
+# Library directory
 LIB_DIR = ../lib
 LIB_TMS = -lTMS_Prod
 
-all: ConvertToTMSTree.exe BetheBloch_Example.exe
+# Exectuable directory
+EXE_DIR = ../bin
+MKDIR_P := mkdir -p
 
-ConvertToTMSTree.exe: ConvertToTMSTree.cpp
+all: directories $(EXE_DIR)/ConvertToTMSTree.exe $(EXE_DIR)/BetheBloch_Example.exe
+
+directories: $(EXE_DIR)
+
+$(EXE_DIR):
+	${MKDIR_P} $(EXE_DIR)
+
+$(EXE_DIR)/ConvertToTMSTree.exe: ConvertToTMSTree.cpp
 	$(CXX) $(CXXFLAGS) -o $@ ConvertToTMSTree.cpp -L $(LIB_DIR) $(LIB_TMS) $(LIB_OBJ) $(BUILD_FLAGS)
 
-BetheBloch_Example.exe: BetheBloch_Example.cpp
+$(EXE_DIR)/BetheBloch_Example.exe: BetheBloch_Example.cpp
 	$(CXX) $(CXXFLAGS) $(ROOT_INC) -o $@ $^ $(ROOT_LIBS)
 
 clean:
