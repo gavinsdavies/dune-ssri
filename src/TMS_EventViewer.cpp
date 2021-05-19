@@ -17,9 +17,9 @@ DrawTrackFinding(false)
   const double ymax = TMS_Const::TMS_End[1];
   // Scint bars are 4 by 1 cm
   //const int nbinsz = ((zmax-zmin)/10)/5;
-  const int nbinsz = ((zmax-zmin)/10)/2;
-  const int nbinsx = ((xmax-xmin)/10)/3;
-  const int nbinsy = ((ymax-ymin)/10)/3;
+  const int nbinsz = ((zmax-zmin)/100)*2;
+  const int nbinsx = ((xmax-xmin)/100)*3;
+  const int nbinsy = ((ymax-ymin)/100)*3;
 
   // The 2D views
   xz_view = new TH2D("TMS_Viewer_xz", "TMS viewer xz;z (mm); x (mm); Energy Deposit (MeV)", nbinsz, zmin, zmax, nbinsx, xmin, xmax);
@@ -47,9 +47,7 @@ DrawTrackFinding(false)
   Canvas = new TCanvas("TMS_EventViewer", "TMS_EventViewer", 1024, 1024);
   //Canvas->Divide(2);
   Canvas->cd(1)->SetLeftMargin(Canvas->GetLeftMargin()*1.2);
-  //Canvas->cd(2)->SetLeftMargin(Canvas->GetLeftMargin()*1.2);
   Canvas->cd(1)->SetRightMargin(Canvas->GetRightMargin()*1.5);
-  //Canvas->cd(2)->SetRightMargin(Canvas->GetRightMargin()*1.5);
 
   // Full view from inspecting all hits
   xz_box_Full = new TBox((730+TMS_Const::TMS_Det_Offset[2])*10,
@@ -137,7 +135,7 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
 
   // Check that there are hits
   if (TMS_Hits.size() < 50) {
-    std::cout << "Trying to draw an event that has no hits in the TMS, returning..." << std::endl;
+    //std::cout << "Trying to draw an event that has no hits in the TMS, returning..." << std::endl;
     return;
   }
 
@@ -149,6 +147,7 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
     double z = bar.GetZ();
     int BarType = bar.GetBarType();
     double e = (*it).GetE();
+
 
     // Bar along y (no x info)
     if (BarType == TMS_Bar::BarType::kYBar) {
@@ -170,7 +169,6 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
     std::vector<TMS_Hit> Candidates = (*it);
 
     double e = 10.0;
-    //std::cout << "size when drwaing candidates: " << Candidates.size() << std::endl;
     for (std::vector<TMS_Hit>::iterator jt = Candidates.begin(); jt != Candidates.end(); ++jt) {
 
       TMS_Bar bar = (*jt).GetBar();  
@@ -194,7 +192,6 @@ void TMS_EventViewer::Draw(TMS_Event &event) {
 
   // Get all the hough lines
   std::vector<std::pair<bool, TF1*> > HoughLines = TMS_TrackFinder::GetFinder().GetHoughLines();
-  //std::cout << HoughLines.size() << std::endl;
 
   gStyle->SetPalette(kBird);
   Canvas->cd(1); 
