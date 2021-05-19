@@ -113,7 +113,6 @@ TMS_Event::TMS_Event(TG4Event &event) {
     }
   }
 
-  std::cout << EventNumber << " passed" << std::endl;
   EventNumber++;
 }
 

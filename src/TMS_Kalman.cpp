@@ -83,7 +83,7 @@ double TMS_Kalman::GetKEEstimateFromLength(double startx, double endx, double st
 
   double KEest = 0;
   // If in thick region
-  if (endz > TMS_Const::TMS_Trans_Start+TMS_Const::TMS_Det_Offset[2]*10) KEest = 101.5+0.133*dist;
+  if (endz > TMS_Const::TMS_Thick_Start) KEest = 101.5+0.133*dist;
   else KEest = -1.13+0.234*dist;
 
   std::cout << "dist: " << dist << " KE: " << KEest << std::endl;

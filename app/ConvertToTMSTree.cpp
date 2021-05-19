@@ -22,7 +22,6 @@
 // Reconstructor
 #include "TMS_Reco.h"
 
-
 bool ConvertToTMSTree(std::string filename, std::string output_filename) {
   std::cout << "Got " << filename << ", writing to " << output_filename << std::endl;
 
@@ -49,9 +48,8 @@ bool ConvertToTMSTree(std::string filename, std::string output_filename) {
   TStopwatch Timer;
   Timer.Start();
 
-  int i = 0;
-  for (; i < N_entries; ++i) {
-    if (i > 10) break;
+  for (int i = 0; i < N_entries; ++i) {
+    if (i > 1000) break;
     events->GetEntry(i);
     gRoo->GetEntry(i);
 
@@ -90,15 +88,15 @@ bool ConvertToTMSTree(std::string filename, std::string output_filename) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2 && argc !=3) {
-    std::cerr << "Need one argument: [EDepSim output file] [Output filename]" << std::endl;
+  if (argc != 2 && argc != 3) {
+    std::cerr << "Need one or two arguments: [EDepSim output file] [Output filename]" << std::endl;
     return -1;
   }
 
   std::string EDepSimFile = std::string(argv[1]);
-
   std::string OutputFile;
-  // If only two arguments are given, 
+
+  // If two arguments are given
   if (argc == 2) {
     std::string filename = std::string(argv[1]);
     OutputFile = filename.substr(0, filename.find(".root"));

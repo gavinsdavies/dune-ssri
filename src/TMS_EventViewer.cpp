@@ -50,17 +50,17 @@ DrawTrackFinding(false)
   Canvas->cd(1)->SetRightMargin(Canvas->GetRightMargin()*1.5);
 
   // Full view from inspecting all hits
-  xz_box_Full = new TBox((730+TMS_Const::TMS_Det_Offset[2])*10,
-      (-348.5+TMS_Const::TMS_Det_Offset[0])*10, 
-      (1415+TMS_Const::TMS_Det_Offset[2])*10, 
-      (348.5+TMS_Const::TMS_Det_Offset[0])*10);
+  xz_box_Full = new TBox(TMS_Const::TMS_Thin_Start,
+      -3485,
+      TMS_Const::TMS_Thick_End,
+      3485);
   xz_box_Full->SetLineColor(kGreen);
   xz_box_Full->SetFillStyle(0);
 
-  yz_box_Full = new TBox((730+TMS_Const::TMS_Det_Offset[2])*10, 
-      (-234+TMS_Const::TMS_Det_Offset[1])*10, 
-      (1415+TMS_Const::TMS_Det_Offset[2])*10, 
-      (87+TMS_Const::TMS_Det_Offset[1])*10);
+  yz_box_Full = new TBox(TMS_Const::TMS_Thin_Start,
+      -2340,
+      TMS_Const::TMS_Thick_End,
+      870);
   yz_box_Full->SetLineColor(kGreen);
   yz_box_Full->SetFillStyle(0);
 
@@ -82,18 +82,18 @@ DrawTrackFinding(false)
   yz_box_FV->SetFillStyle(0);
 
   // Include the dead region boxes
-  xz_dead_top = new TBox((730+TMS_Const::TMS_Det_Offset[2])*10, 
-      (171.7+TMS_Const::TMS_Det_Offset[0])*10, 
-      (1415+TMS_Const::TMS_Det_Offset[2])*10, 
-      (180.4+TMS_Const::TMS_Det_Offset[0])*10);
-  xz_dead_center = new TBox((730+TMS_Const::TMS_Det_Offset[2])*10, 
-      (-3.3+TMS_Const::TMS_Det_Offset[0])*10, 
-      (1415+TMS_Const::TMS_Det_Offset[2])*10, 
-      (3.3+TMS_Const::TMS_Det_Offset[0])*10);
-  xz_dead_bottom = new TBox((730+TMS_Const::TMS_Det_Offset[2])*10, 
-      (-180.4+TMS_Const::TMS_Det_Offset[0])*10, 
-      (1415+TMS_Const::TMS_Det_Offset[2])*10, 
-      (-171.7+TMS_Const::TMS_Det_Offset[0])*10);
+  xz_dead_top = new TBox(TMS_Const::TMS_Thin_Start,
+      1717, 
+      TMS_Const::TMS_Thick_End,
+      1804);
+  xz_dead_center = new TBox(TMS_Const::TMS_Thin_Start,
+      -33, 
+      TMS_Const::TMS_Thick_End,
+      33);
+  xz_dead_bottom = new TBox(TMS_Const::TMS_Thin_Start,
+      -1804, 
+      TMS_Const::TMS_Thick_End,
+      -1717);
   xz_dead_top->SetFillStyle(3003);
   xz_dead_center->SetFillStyle(3003);
   xz_dead_bottom->SetFillStyle(3003);
@@ -102,17 +102,17 @@ DrawTrackFinding(false)
   xz_dead_bottom->SetFillColor(kGray);
   
   // And a line at the thin/thick divide
-  xz_Thin_Thick = new TLine((TMS_Const::TMS_Trans_Start+TMS_Const::TMS_Det_Offset[2])*10, 
-      (-348.5+TMS_Const::TMS_Det_Offset[0])*10, 
-      (TMS_Const::TMS_Trans_Start+TMS_Const::TMS_Det_Offset[2])*10, 
-      (348.5+TMS_Const::TMS_Det_Offset[0])*10);
+  xz_Thin_Thick = new TLine(TMS_Const::TMS_Thick_Start,
+      -3485, 
+      TMS_Const::TMS_Thick_Start,
+      3485);
   xz_Thin_Thick->SetLineColor(kGray);
   xz_Thin_Thick->SetLineStyle(kDashed);
 
-  yz_Thin_Thick = new TLine((TMS_Const::TMS_Trans_Start+TMS_Const::TMS_Det_Offset[2])*10, 
-      (-234+TMS_Const::TMS_Det_Offset[1])*10, 
-      (TMS_Const::TMS_Trans_Start+TMS_Const::TMS_Det_Offset[2])*10, 
-      (87+TMS_Const::TMS_Det_Offset[1])*10);
+  yz_Thin_Thick = new TLine(TMS_Const::TMS_Thick_Start,
+      -2340, 
+      TMS_Const::TMS_Thick_Start,
+      870);
   yz_Thin_Thick->SetLineColor(kGray);
   yz_Thin_Thick->SetLineStyle(kDashed);
 

@@ -10,9 +10,12 @@ TMS_TrackFinder::TMS_TrackFinder() :
   SlopeMax(1.5),
   InterceptWidth((InterceptMax-InterceptMin)/nIntercept),
   SlopeWidth((SlopeMax-SlopeMin)/nSlope),
-  zMaxHough((TMS_Const::TMS_Trans_Start+TMS_Const::TMS_Det_Offset[2])*10), // Max z for us to do Hough in, here choose transition layer
-  nMinHits(10), // Minimum number of hits required to run track finding
-  nMaxMerges(1), // Maximum number of merges for one hit
+  // Max z for us to do Hough in, here choose transition layer
+  zMaxHough(TMS_Const::TMS_Thick_Start),
+  // Minimum number of hits required to run track finding
+  nMinHits(10),
+  // Maximum number of merges for one hit
+  nMaxMerges(1),
   // Initialise Highest cost to be very large
   HighestCost(999),
   IsGreedy(false)
@@ -27,7 +30,7 @@ TMS_TrackFinder::TMS_TrackFinder() :
   Efficiency = new TH1D("Efficiency", "Efficiency;T_{#mu} (GeV); Efficiency", 30, 0, 6);
   Total = new TH1D("Total", "Total;T_{#mu} (GeV); Total", 30, 0, 6);
 
-  HoughLine = new TF1("LinearHough", "[0]+[1]*x", (TMS_Const::TMS_Thin_Start+TMS_Const::TMS_Det_Offset[2])*10, (1450+TMS_Const::TMS_Det_Offset[2])*10);
+  HoughLine = new TF1("LinearHough", "[0]+[1]*x", TMS_Const::TMS_Thin_Start, TMS_Const::TMS_Thick_Start);
   HoughLine->SetLineStyle(kDashed);
   HoughLine->SetLineColor(kRed);
 }
@@ -235,8 +238,11 @@ std::vector<TMS_Hit> TMS_TrackFinder::RunHough(const std::vector<TMS_Hit> &TMS_H
   double SlopeOpt_zy = SlopeMin+max_zy_slope_bin*(SlopeMax-SlopeMin)/nSlope;
   HoughLine->SetParameter(0, InterceptOpt_zy);
   HoughLine->SetParameter(1, SlopeOpt_zy);
+  // Different fitting regions for XZ and YZ views: 
+  // Most of the bending happens in xz, so fit only until the transition region. 
+  // For the yz view, fit the entire region
   if (IsXZ) HoughLine->SetRange(HoughLine->GetXmin(), zMaxHough);
-  else HoughLine->SetRange((TMS_Const::TMS_Thin_Start+TMS_Const::TMS_Det_Offset[2])*10, (1450+TMS_Const::TMS_Det_Offset[2])*10);
+  else HoughLine->SetRange(TMS_Const::TMS_Thin_Start, TMS_Const::TMS_Thick_End);
 
   TF1 *HoughCopy = (TF1*)HoughLine->Clone();
 
@@ -339,12 +345,12 @@ std::vector<TMS_Hit> TMS_TrackFinder::RunHough(const std::vector<TMS_Hit> &TMS_H
 
         // Make a special arrangement for if we're next to the gap
         else if (InGap && ( 
-              PoolBar.Contains(TMS_Const::TMS_Dead_Top_T[1]+PoolPosWidth, PoolBar.GetZ()) ||
-              PoolBar.Contains(TMS_Const::TMS_Dead_Top_T[0]-PoolPosWidth, PoolBar.GetZ()) ||
-              PoolBar.Contains(TMS_Const::TMS_Dead_Center_T[1]+PoolPosWidth, PoolBar.GetZ()) ||
-              PoolBar.Contains(TMS_Const::TMS_Dead_Center_T[0]-PoolPosWidth, PoolBar.GetZ()) ||
-              PoolBar.Contains(TMS_Const::TMS_Dead_Bottom_T[1]+PoolPosWidth, PoolBar.GetZ()) ||
-              PoolBar.Contains(TMS_Const::TMS_Dead_Bottom_T[0]-PoolPosWidth, PoolBar.GetZ()) )) {
+              PoolBar.Contains(TMS_Const::TMS_Dead_Top[1]+PoolPosWidth, PoolBar.GetZ()) ||
+              PoolBar.Contains(TMS_Const::TMS_Dead_Top[0]-PoolPosWidth, PoolBar.GetZ()) ||
+              PoolBar.Contains(TMS_Const::TMS_Dead_Center[1]+PoolPosWidth, PoolBar.GetZ()) ||
+              PoolBar.Contains(TMS_Const::TMS_Dead_Center[0]-PoolPosWidth, PoolBar.GetZ()) ||
+              PoolBar.Contains(TMS_Const::TMS_Dead_Bottom[1]+PoolPosWidth, PoolBar.GetZ()) ||
+              PoolBar.Contains(TMS_Const::TMS_Dead_Bottom[0]-PoolPosWidth, PoolBar.GetZ()) )) {
           Merge = true;
         }
 
@@ -1061,16 +1067,16 @@ bool TMS_TrackFinder::NextToGap(double barpos, double width) {
   double neg = barpos-width;
 
   // Check the top
-  if ((pos > TMS_Const::TMS_Dead_Top_T[0] && pos < TMS_Const::TMS_Dead_Top_T[1]) ||
-      (neg < TMS_Const::TMS_Dead_Top_T[1] && neg > TMS_Const::TMS_Dead_Top_T[0])) return true;
+  if ((pos > TMS_Const::TMS_Dead_Top[0] && pos < TMS_Const::TMS_Dead_Top[1]) ||
+      (neg < TMS_Const::TMS_Dead_Top[1] && neg > TMS_Const::TMS_Dead_Top[0])) return true;
 
   // Check the center
-  else if ((pos > TMS_Const::TMS_Dead_Center_T[0] && pos < TMS_Const::TMS_Dead_Center_T[1]) ||
-      (neg < TMS_Const::TMS_Dead_Center_T[1] && neg > TMS_Const::TMS_Dead_Center_T[0])) return true;
+  else if ((pos > TMS_Const::TMS_Dead_Center[0] && pos < TMS_Const::TMS_Dead_Center[1]) ||
+      (neg < TMS_Const::TMS_Dead_Center[1] && neg > TMS_Const::TMS_Dead_Center[0])) return true;
 
   // Check the bottom
-  else if ((pos > TMS_Const::TMS_Dead_Bottom_T[0] && pos < TMS_Const::TMS_Dead_Bottom_T[1]) ||
-      (neg < TMS_Const::TMS_Dead_Bottom_T[1] && neg > TMS_Const::TMS_Dead_Bottom_T[0])) return true;
+  else if ((pos > TMS_Const::TMS_Dead_Bottom[0] && pos < TMS_Const::TMS_Dead_Bottom[1]) ||
+      (neg < TMS_Const::TMS_Dead_Bottom[1] && neg > TMS_Const::TMS_Dead_Bottom[0])) return true;
 
   else return false;
 

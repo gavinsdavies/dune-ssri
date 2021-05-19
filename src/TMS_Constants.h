@@ -9,62 +9,60 @@ namespace TMS_KinConst {
 }
 
 // General constants for the TMS
+// Lots of these are hard-coded geometry constants that *NEED* to be updated for each production IF detectors move
 namespace TMS_Const {
 
   // Dead region (area between LAr and TMS) track length contribution, in g/cm2
   const double Dead_Region_Track_Length = 24.35;
 
   // Material densities, in g/cm3
+  // Check these against the density in the geometry file
   const double LAr_density = 1.3954;
   const double TMS_Steel_density = 7.85;
   const double TMS_Scint_density = 1.05;
 
-  // Z positions of the scintillator bars (cm)
-  const double TMS_Thin_Start = 730.8;
-  const double TMS_Trans_Start = 939.8;
-  const double TMS_Thick_Start = 949.3;
+  // Z positions of the first hits of the TMS
+  const double TMS_Thin_Start = 11362;
+  // Where do we transition to the thick region (first layer of scintillator before the change)
+  const double TMS_Thick_Start = 13500;
+  // Where does the thick region end
+  const double TMS_Thick_End = 18294;
 
   // Approximate starting and end positions of TMS detector in geometry for plotting hits, in {x,y,z}
   // in mm by default!
-  const double TMS_Start[] = {-4000, -3500, 10000};
-  const double TMS_End[] = {4000, 500, 20000};
+  const double TMS_Start[] = {-4000, -3500, 11000};
+  const double TMS_End[] = {4000, 500, 19000};
 
-  // Gap for TMS region that is thin iron layer (cm)
-  const double TMS_Thin_gap = 5.5;
-  // Gap for TMS region that is between thin and thick regions (cm)
-  const double TMS_Transition_gap = 9.5;
-  // Gap for TMS region that is thick iron layer (cm)
-  const double TMS_Thick_gap = 8.0;
+  // More exact locations of bars
+  const double TMS_Start_Exact[] = {-3520, -3864, TMS_Thin_Start};
+  const double TMS_End_Exact[] = {3520, 1159, TMS_Thick_End};
 
-  // TMS scintillator width (1 cm)
-  const double TMS_Scint_Width = 1;
-  //TMS steel width in thin region (1.5 cm);
-  const double TMS_Thin_Steel_Width = 1.5;
-  //TMS steel width in thick region (4.0 cm);
-  const double TMS_Thick_Steel_Width = 4.0;
+  // Gap for TMS region that is thin iron layer (mm)
+  const double TMS_Thin_gap = 55;
+  // Gap for TMS region that is thick iron layer (mm)
+  const double TMS_Thick_gap = 80;
+
+  // z
+  // TMS scintillator width (10 mm)
+  const double TMS_Scint_Width = 10;
+  //TMS steel width in thin region (15 mm);
+  const double TMS_Thin_Steel_Width = 15;
+  //TMS steel width in thick region (40 mm);
+  const double TMS_Thick_Steel_Width = 40;
 
   // Offsets to put the TMS in the middle
   const double TMS_Det_Offset[] = { 0., 0., 0. };
-  //const double TMS_Det_Offset[] = { 0., 5.5, 411. };
-  //const double TMS_Det_Offset[] = { 0., 0.0, 411. };
 
   // Needs translating by the TMS_Const::TMS_Det_Offset array
   // Start and end of top dead region in x
-  const double TMS_Dead_Top[] = {171.7, 180.4};
+  const double TMS_Dead_Top[] = {1717, 1804};
   // Start and end of central dead region in x
-  const double TMS_Dead_Center[] = {-3.3, 3.3};
+  const double TMS_Dead_Center[] = {-33, 33};
   // Start and end of bottom dead region in x
-  const double TMS_Dead_Bottom[] = {-180.4, -171.7};
+  const double TMS_Dead_Bottom[] = {-1804, -1717};
 
   // Some distance after the end of the TMS
-  const double TMS_End_z = (1500+TMS_Const::TMS_Det_Offset[2])*10;
-
-  // Start and end of top dead region in x
-  const double TMS_Dead_Top_T[] = {(TMS_Dead_Top[0]+TMS_Det_Offset[1])*10, (TMS_Dead_Top[1]+TMS_Det_Offset[1])*10};
-  // Start and end of central dead region in x
-  const double TMS_Dead_Center_T[] = {(TMS_Dead_Center[0]+TMS_Det_Offset[1])*10, (TMS_Dead_Center[0]+TMS_Det_Offset[1])*10};
-  // Start and end of bottom dead region in x
-  const double TMS_Dead_Bottom_T[] = {(TMS_Dead_Bottom[0]+TMS_Det_Offset[1])*10, (TMS_Dead_Bottom[1]+TMS_Det_Offset[1])*10};
+  const double TMS_End_z = TMS_Thick_End+200;
 
   // Volume name of TMS related hits
   const std::string TMS_VolumeName = "TMS";
