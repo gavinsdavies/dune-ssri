@@ -7,6 +7,8 @@ It uses `edep-sim` output, which are stored at:
 
 * First alpha production: `/pnfs/dune/persistent/ndmuonspect/EDepSim_Sim`. Only LAr as active target. Some bugs in geometry. Only use these to reproduce Preliminary Design Report studies!
 
+For more informatinon on running a production, see the https://github.com/DUNE/ND_Production repository.
+
 # Setup and dependencies
 The framework depends on `edep-sim`, `ROOT`, and `CLHEP`. An example setup using mostly `ups` products is provided in `setup.sh`.
 
