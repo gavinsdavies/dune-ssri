@@ -58,8 +58,8 @@ bool TMS_Bar::FindModules(double xval, double yval, double zval) {
       zw = 2*box->GetDZ();
 
       // Do a sanity check (CHEATING!)
-      // Know the bars are 1cm in z and 4cm in x
-      if (zw != 10 || xw != 40) {
+      // Know the bars are 1cm in z and 3.542cm in x
+      if (zw != 10 || xw != 35.42) {
         std::cerr << "width of " << NodeName << " not as expected!" << std::endl;
         std::cerr << "xwidth: " << xw << std::endl;
         std::cerr << "zwidth: " << zw << std::endl;
@@ -104,13 +104,10 @@ bool TMS_Bar::FindModules(double xval, double yval, double zval) {
   if (BarOrient == kXBar) {
     x = -99999000;
     // Flip the widths
-    //std::cout << "flipping width "  << yw << " to be " << xw << std::endl;
     double tempyw = yw;
     yw = xw;
     xw = tempyw; 
-    //std::cout << "flipped width "  << yw << " to be " << xw << std::endl;
   } else if (BarOrient == kYBar) {
-    //std::cout << "for ybar: " << yw << " " << xw << std::endl;
     y = -99999000;
     // Don't need to flip the widths because they're already correct (yw = large, xw = 4cm)
   } else {
@@ -175,17 +172,14 @@ void TMS_Bar::Print() {
 }
 
 double TMS_Bar::FindYbar(double yval) {
-  const double ymin = (-250+TMS_Const::TMS_Det_Offset[1])*10;
-  //const double ymax = (100+TMS_Const::TMS_Det_Offset[1])*10;
+  const double ymin = TMS_Const::TMS_End[2];
 
   // The total range of y
-  //double yrange = ymax-ymin;
   // Splits into how many 40mm slices
-  //int nSlices = yrange/40;
+  // Change to 35.42mm slices?
   int bin = (yval-ymin)/40;
   // Return the center of the bin
   double val = ymin+bin*40+20;
-  //std::cout << yval << " corrected to " << val << std::endl;
 
   return val;
 }
