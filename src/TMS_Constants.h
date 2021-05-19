@@ -25,8 +25,9 @@ namespace TMS_Const {
   const double TMS_Thick_Start = 949.3;
 
   // Approximate starting and end positions of TMS detector in geometry for plotting hits, in {x,y,z}
-  const double TMS_Start[] = {-400, -350, 1000};
-  const double TMS_End[] = {400, 50, 2000};
+  // in mm by default!
+  const double TMS_Start[] = {-4000, -3500, 10000};
+  const double TMS_End[] = {4000, 500, 20000};
 
   // Gap for TMS region that is thin iron layer (cm)
   const double TMS_Thin_gap = 5.5;
@@ -74,9 +75,11 @@ namespace TMS_Const {
   // To find scintillator "box"
   const std::string TMS_ModuleName = "ModuleBoxvol_PV";
   // To find scintillator "box"
-  const std::string TMS_ScintLayerName = "scinBoxlvRMMS_PV";
+  const std::string TMS_ScintLayerName = "scinBoxlvTMS_PV";
   // The top layer name
   const std::string TMS_TopLayerName = "volWorld";
+
+  const std::string LAr_ActiveName = "volTPCActive";
 }
 
 #endif
