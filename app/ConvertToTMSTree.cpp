@@ -48,7 +48,8 @@ bool ConvertToTMSTree(std::string filename, std::string output_filename) {
   TStopwatch Timer;
   Timer.Start();
 
-  for (int i = 0; i < N_entries; ++i) {
+  int i = 0;
+  for (; i < N_entries; ++i) {
     if (i > 1000) break;
     events->GetEntry(i);
     gRoo->GetEntry(i);

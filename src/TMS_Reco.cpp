@@ -11,14 +11,16 @@ TMS_TrackFinder::TMS_TrackFinder() :
   InterceptWidth((InterceptMax-InterceptMin)/nIntercept),
   SlopeWidth((SlopeMax-SlopeMin)/nSlope),
   // Max z for us to do Hough in, here choose transition layer
-  zMaxHough(TMS_Const::TMS_Thick_Start),
+  zMaxHough(TMS_Const::TMS_Thick_Start+1000),
+  nMaxHough(2),
+  nHits_Tol(0.5),
   // Minimum number of hits required to run track finding
   nMinHits(10),
   // Maximum number of merges for one hit
   nMaxMerges(1),
+  IsGreedy(false),
   // Initialise Highest cost to be very large
-  HighestCost(999),
-  IsGreedy(false)
+  HighestCost(999)
 {
   // Apply the maximum Hough transform to the zx not zy: all bending happens in zx
   Accumulator = new int*[nSlope];
@@ -63,6 +65,8 @@ void TMS_TrackFinder::FindTracks(TMS_Event &event) {
 
   // For future probably want to move track candidates into the TMS_Event class
   //EvaluateTrackFinding(event);
+
+  return;
 
   // Now have the TotalCandidates filled
   // Start some reconstruction chain
@@ -158,8 +162,8 @@ void TMS_TrackFinder::HoughTransform(const std::vector<TMS_Hit> &TMS_Hits) {
   // We'll be moving out TMS_xz and TMS_yz and putting them into candidates
   // Keep running successive Hough transforms until we've covered 80% of hits (allow for maximum 4 runs)
   int nRuns = 0;
-  //while (TMS_yz.size() > 0.2*nYZ_Hits_Start && TMS_xz.size() > 0.2*nXZ_Hits_Start && nRuns < 4) {
-  while (TMS_xz.size() > 0.2*nXZ_Hits_Start && nRuns < 4) {
+
+  while (double(TMS_xz.size()) > nHits_Tol*nXZ_Hits_Start && nRuns < nMaxHough) {
 
     std::vector<TMS_Hit> TMS_xz_cand;
     std::vector<TMS_Hit> TMS_yz_cand;

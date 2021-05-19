@@ -5,7 +5,7 @@ int TMS_Event::EventNumber = 0;
 
 // Start the relatively tedious process of converting into TMS products!
 TMS_Event::TMS_Event(TG4Event &event) {
-  bool OnlyMuon = true;
+  bool OnlyMuon = false;
   bool LArOnly = true;
   bool TMSLArOnly = true;
 

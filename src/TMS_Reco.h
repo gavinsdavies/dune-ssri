@@ -171,17 +171,23 @@ class TMS_TrackFinder {
     double InterceptWidth;
     double SlopeWidth;
 
+    // Maximum that we run Hough in z
+    double zMaxHough;
+    // Maximum number of Hough transforms
+    int nMaxHough;
+    // Number of hits required to actually run the Hough transform
+    double nHits_Tol;
+
     int **Accumulator;
 
     TF1 *HoughLine;
 
-    double zMaxHough;
 
     unsigned int nMinHits;
     unsigned int nMaxMerges;
 
-    double HighestCost;
     bool IsGreedy;
+    double HighestCost;
     // Which planes are next to the gaps (i.e. may cause discontinuities)?
     std::vector<int> PlanesNearGap;
 
