@@ -6,6 +6,8 @@ int TMS_Event::EventNumber = 0;
 // Start the relatively tedious process of converting into TMS products!
 TMS_Event::TMS_Event(TG4Event &event) {
   bool OnlyMuon = true;
+  bool LArOnly = true;
+  bool TMSLArOnly = true;
 
   // Check the integrity of the event
   //CheckIntegrity();
@@ -29,6 +31,8 @@ TMS_Event::TMS_Event(TG4Event &event) {
     }
     */
 
+    bool skip = true;
+
     for (TG4TrajectoryContainer::iterator jt = event.Trajectories.begin(); jt != event.Trajectories.end(); ++jt) {
       TG4Trajectory traj = *jt;
 
@@ -46,12 +50,25 @@ TMS_Event::TMS_Event(TG4Event &event) {
       //TVector3 Momentum = traj.Points[0].GetMomentum(); 
       //TLorentzVector Position = traj.Points[0].GetPosition();
 
+      // Let's identify the detector the first point is in; this way can isolate on LAr and TMS
+      TG4TrajectoryPoint start = traj.Points[0];
+      TGeoNode *vol = TMS_Geom::GetInstance().GetGeometry()->FindNode(start.GetPosition().X(), start.GetPosition().Y(), start.GetPosition().Z());
+
+      std::string VolumeName = vol->GetName();
+      bool InLAr = false;
+      bool InTMS = false;
+      if (VolumeName.find(TMS_Const::LAr_ActiveName) != std::string::npos) InLAr = true;
+      if (VolumeName.find(TMS_Const::TMS_EDepSim_VolumeName) != std::string::npos) InTMS = true;
+      if (LArOnly && !InLAr) continue;
+      if (TMSLArOnly && !InLAr && !InTMS) continue;
+      skip = false;
+
       // Save down the trajectory points of the true particles
       for (std::vector<TG4TrajectoryPoint>::iterator kt = traj.Points.begin(); kt != traj.Points.end(); kt++) {
         TG4TrajectoryPoint pt = *kt;
         // Check the point against the geometry
         TGeoNode *vol = TMS_Geom::GetInstance().GetGeometry()->FindNode(pt.GetPosition().X(), pt.GetPosition().Y(), pt.GetPosition().Z());
-        std::string VolumeName = vol->GetName();
+        VolumeName = vol->GetName();
         // Only look at TMS hits
         if (VolumeName.find(TMS_Const::TMS_VolumeName) == std::string::npos && 
             VolumeName.find(TMS_Const::TMS_ModuleLayerName) == std::string::npos) continue;
@@ -68,34 +85,35 @@ TMS_Event::TMS_Event(TG4Event &event) {
       }
     }
 
-    // Loop over each hit
-    for (TG4HitSegmentDetectors::iterator jt = event.SegmentDetectors.begin(); jt != event.SegmentDetectors.end(); ++jt) {
-      // Only look at TMS hits
-      std::string DetString = (*jt).first;
-      if (DetString != TMS_Const::TMS_EDepSim_VolumeName) continue;
+    if (!skip) {
+      // Loop over each hit
+      for (TG4HitSegmentDetectors::iterator jt = event.SegmentDetectors.begin(); jt != event.SegmentDetectors.end(); ++jt) {
+        // Only look at TMS hits
+        std::string DetString = (*jt).first;
+        if (DetString != TMS_Const::TMS_EDepSim_VolumeName) continue;
 
-      TG4HitSegmentContainer tms_hits = (*jt).second;
-      for (TG4HitSegmentContainer::iterator kt = tms_hits.begin(); kt != tms_hits.end(); ++kt) {
-        TG4HitSegment edep_hit = *kt;
-        TMS_Hit hit = TMS_Hit(edep_hit);
-        TMS_Hits.push_back(hit);
-        std::cout << "***" << std::endl;
-        hit.Print();
+        TG4HitSegmentContainer tms_hits = (*jt).second;
+        for (TG4HitSegmentContainer::iterator kt = tms_hits.begin(); kt != tms_hits.end(); ++kt) {
+          TG4HitSegment edep_hit = *kt;
+          TMS_Hit hit = TMS_Hit(edep_hit);
+          TMS_Hits.push_back(hit);
 
-        // Now associate the hits with the muon
-        int PrimaryId = edep_hit.GetPrimaryId();
-        // Loop through the True Particle list and associate
-        for (auto &TrueParticle : TMS_TrueParticles) {
-          // Check the primary ID
-          if (TrueParticle.GetTrackId() != PrimaryId) continue;
-          TLorentzVector Position = (edep_hit.GetStop()+edep_hit.GetStart());
-          Position *= 0.5;
-          TrueParticle.AddPoint(Position);
+          // Now associate the hits with the muon
+          int PrimaryId = edep_hit.GetPrimaryId();
+          // Loop through the True Particle list and associate
+          for (auto &TrueParticle : TMS_TrueParticles) {
+            // Check the primary ID
+            if (TrueParticle.GetTrackId() != PrimaryId) continue;
+            TLorentzVector Position = (edep_hit.GetStop()+edep_hit.GetStart());
+            Position *= 0.5;
+            TrueParticle.AddPoint(Position);
+          }
         }
       }
     }
   }
 
+  std::cout << EventNumber << " passed" << std::endl;
   EventNumber++;
 }
 
